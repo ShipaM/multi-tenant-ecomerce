@@ -131,9 +131,6 @@
   }
 }
 
-/* The route fallback does not appear instantly: with useTransitions={false}
-   React commits it synchronously, and on a fast chunk load the spinner would
-   flash for a frame. The delay reveals it only on genuinely slow ones. */
 @keyframes route-fallback-in {
   from {
     opacity: 0;
