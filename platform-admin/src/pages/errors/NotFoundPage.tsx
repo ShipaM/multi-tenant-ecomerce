@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { PrefetchLink } from "@/components/prefetch-link";
+import { PrefetchLink } from "@/components/PrefetchLink";
 
 const NotFoundPage = () => {
   return (
@@ -7,7 +7,6 @@ const NotFoundPage = () => {
       <p className="text-muted-foreground text-sm font-medium">404</p>
       <h1 className="text-2xl font-semibold tracking-tight">Page not found</h1>
       <Button asChild variant="outline">
-        {/* "/" redirects to /auth/login, so that is the chunk we warm up */}
         <PrefetchLink to="/" prefetchModule="login">
           Go home
         </PrefetchLink>
