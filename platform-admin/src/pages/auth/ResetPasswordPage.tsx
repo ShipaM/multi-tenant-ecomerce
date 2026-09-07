@@ -1,4 +1,5 @@
 import { PasswordInput } from "@/components/PasswordInput";
+import { PrefetchLink } from "@/components/PrefetchLink";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -9,7 +10,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { CheckCircle2 } from "lucide-react";
 import { useState, type SubmitEvent, type ChangeEvent } from "react";
-import { Link, useLocation } from "react-router";
+import { useLocation } from "react-router";
 
 const ResetPassword = () => {
   const location = useLocation();
@@ -57,7 +58,9 @@ const ResetPassword = () => {
           passoword.
         </p>
         <Button asChild className="mt-10 h-11 w-full">
-          <Link to={"/auth/login"}>Back to sign in</Link>
+          <PrefetchLink prefetchModule="login" to={"/auth/login"}>
+            Back to sign in
+          </PrefetchLink>
         </Button>
       </div>
     );
@@ -115,7 +118,11 @@ const ResetPassword = () => {
 
           {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
 
-          <Button type="submit" className="mt-6 h-11 w-full" disabled={isSubmitting}>
+          <Button
+            type="submit"
+            className="mt-6 h-11 w-full"
+            disabled={isSubmitting}
+          >
             {isSubmitting ? (
               <>
                 <Spinner className="size-4" />
