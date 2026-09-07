@@ -4,10 +4,6 @@ import PlatfromLogo from "@/assets/platform-logo.png";
 
 import { RouteFallback } from "@/components/route-fallback";
 
-/**
- * Layout route for the /auth section: renders the branding panel and hosts
- * the auth pages in its <Outlet />.
- */
 const AuthLayout = () => {
   return (
     <div className="flex min-h-svh">
@@ -35,11 +31,11 @@ const AuthLayout = () => {
           &copy; 2026 Dynamic Coding with Amit
         </p>
       </div>
-      {/* Suspense inside the layout: the page chunk loads while the layout
-          shell stays on screen. */}
-      <Suspense fallback={<RouteFallback />}>
-        <Outlet />
-      </Suspense>
+      <div className="flex flex-1 items-center justify-center bg-background p-8">
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet />
+        </Suspense>
+      </div>
     </div>
   );
 };
