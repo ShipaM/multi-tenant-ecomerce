@@ -9,7 +9,7 @@ import { createId } from '@paralleldrive/cuid2';
 import bcrypt from 'bcryptjs';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { User } from '../generated/prisma/client.js';
-import { UserStatus } from '../generated/prisma/enums.js';
+import { UserStatus, UserType } from '../generated/prisma/enums.js';
 import { ExpiresIn } from '../config/env.validation.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
@@ -26,6 +26,10 @@ export interface LoginContext {
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
+}
+
+export interface LoginResponse extends TokenPair {
+  userType: UserType;
 }
 
 const REFRESH_TOKEN_HASH_LABEL = 'refresh-token:';
@@ -46,7 +50,7 @@ export class AuthService {
     email: string,
     password: string,
     context: LoginContext = {},
-  ): Promise<TokenPair> {
+  ): Promise<LoginResponse> {
     const user = await this.usersService.findByEmail(email);
 
     const passwordMatches = await bcrypt.compare(
@@ -62,7 +66,9 @@ export class AuthService {
       throw new ForbiddenException('This account is not active');
     }
 
-    return this.issueTokenPair(user, context);
+    const tokens = await this.issueTokenPair(user, context);
+
+    return { ...tokens, userType: user.userType };
   }
 
   /// Opens a brand new session row for a fresh sign-in.

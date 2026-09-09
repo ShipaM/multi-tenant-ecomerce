@@ -77,6 +77,22 @@ describe('AuthService', () => {
     );
   });
 
+  it('returns the user type alongside the tokens on a successful login', async () => {
+    usersService.findByEmail.mockResolvedValue({
+      ...user,
+      // bcrypt hash of "correct-password"
+      passwordHash:
+        '$2b$10$u0rSVA5CKnD0UA/bJimDZ.pC/S57JSYYldMDF41v.7fEinQsBChH6',
+    });
+    jwtService.signAsync.mockResolvedValue(TOKEN_A);
+
+    await expect(service.login('a@b.com', 'correct-password')).resolves.toEqual({
+      accessToken: TOKEN_A,
+      refreshToken: TOKEN_A,
+      userType: UserType.PLATFORM_ADMIN,
+    });
+  });
+
   it('refuses to issue tokens to a suspended account', async () => {
     usersService.findByEmail.mockResolvedValue({
       ...user,
