@@ -194,4 +194,29 @@ describe("Axios client", () => {
     );
     expect(window.location.href).toBe("/dashboard");
   });
+
+  it("keeps a stale token out of the sign-in request", async () => {
+    let sentAuthorization: unknown = "unset";
+
+    respond = (config) => {
+      sentAuthorization = config.headers.Authorization;
+      unauthorized(config);
+    };
+
+    const client = await loadClient();
+
+    await expect(
+      client.post("/auth/login", { email: "a@b.com", password: "wrong" }),
+    ).rejects.toBeInstanceOf(AxiosError);
+
+    // A 401 here is about the credentials, not about an expired session, so the
+    // leftover token must neither be sent nor trigger a refresh and a redirect.
+    expect(sentAuthorization).toBeUndefined();
+    expect(refreshCallCount()).toBe(0);
+    expect(requested).toEqual(["/auth/login"]);
+    expect(window.location.href).toBe("/dashboard");
+    expect(localStorage.getItem(LOCAL_STORAGE_KEYS.ACCESS_TOKEN)).toBe(
+      "stale-access",
+    );
+  });
 });

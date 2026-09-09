@@ -4,24 +4,42 @@ import { FieldGroup, Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useState, type SubmitEvent } from "react";
+import { useAppDispatch } from "@/hooks/use-store";
+import { fetchLogin } from "@/store/auth/authSlice";
+import { useNavigate } from "react-router";
 
 const LoginPage = () => {
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    setError(null);
     setIsSubmitting(true);
-    setTimeout(() => {
+    setError(null);
+
+    try {
+      await dispatch(fetchLogin({ email, password })).unwrap();
+      navigate("/dashboard");
+    } catch (error) {
+      setError(typeof error === "string" ? error : "Failed to login");
+    } finally {
       setIsSubmitting(false);
-      setPassword("");
-      setEmail("");
-    }, 2000);
+    }
+
+    // setError(null);
+    // setIsSubmitting(true);
+    // setTimeout(() => {
+    //   setIsSubmitting(false);
+    //   setPassword("");
+    //   setEmail("");
+    // }, 2000);
   };
 
   return (
@@ -69,9 +87,13 @@ const LoginPage = () => {
             />
           </Field>
 
-          {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+          {error && <p className="mt-1 text-sm text-destructive">{error}</p>}
 
-          <Button type="submit" className="mt-6 h-11 w-full" disabled={isSubmitting}>
+          <Button
+            type="submit"
+            className="mt-2 h-11 w-full"
+            disabled={isSubmitting}
+          >
             {isSubmitting ? (
               <>
                 <Spinner className="size-4" />

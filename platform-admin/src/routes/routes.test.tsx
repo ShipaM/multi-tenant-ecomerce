@@ -1,9 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import { StrictMode } from "react";
+import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
 
 import App from "@/App";
+import { store } from "@/store";
 
 const SIGN_IN = "Sign In";
 const NOT_FOUND = "Page not found";
@@ -11,9 +13,11 @@ const NOT_FOUND = "Page not found";
 function renderAt(path: string) {
   return render(
     <StrictMode>
-      <MemoryRouter initialEntries={[path]} useTransitions={false}>
-        <App />
-      </MemoryRouter>
+      <Provider store={store}>
+        <MemoryRouter initialEntries={[path]} useTransitions={false}>
+          <App />
+        </MemoryRouter>
+      </Provider>
     </StrictMode>,
   );
 }

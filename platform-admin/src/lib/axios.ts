@@ -1,7 +1,8 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { LOCAL_STORAGE_KEYS, storage } from "./storage";
 
-const baseURL = import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:4000";
+const baseURL =
+  import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:4000";
 
 export const Axios = axios.create({
   baseURL,
@@ -11,7 +12,16 @@ const refreshClient = axios.create({
   baseURL,
 });
 
+const PUBLIC_AUTH_PATHS = ["/auth/login", "/auth/refresh"];
+
+const isPublicAuthPath = (url: string | undefined): boolean =>
+  Boolean(url && PUBLIC_AUTH_PATHS.some((path) => url.startsWith(path)));
+
 Axios.interceptors.request.use((config) => {
+  if (isPublicAuthPath(config.url)) {
+    return config;
+  }
+
   const accessToken = storage.getAccessToken();
 
   if (accessToken) {
@@ -35,19 +45,12 @@ async function requestTokenPair(): Promise<string> {
     refreshToken,
   });
 
-  storage.setToken(LOCAL_STORAGE_KEYS.ACCESS_TOKEN, response.data.accessToken);
-  storage.setToken(
-    LOCAL_STORAGE_KEYS.REFRESH_TOKEN,
-    response.data.refreshToken,
-  );
+  storage.setItem(LOCAL_STORAGE_KEYS.ACCESS_TOKEN, response.data.accessToken);
+  storage.setItem(LOCAL_STORAGE_KEYS.REFRESH_TOKEN, response.data.refreshToken);
 
   return response.data.accessToken;
 }
 
-// An expired access token usually fails every request on the page at once. The
-// API rotates the refresh token on every call, so a second concurrent exchange
-// would present an already-invalidated one and sign the user out; instead every
-// caller waits on the same exchange.
 let pendingRefresh: Promise<string> | null = null;
 
 function fetchRefreshToken(): Promise<string> {
@@ -84,16 +87,13 @@ Axios.interceptors.response.use(
     try {
       newAccessToken = await fetchRefreshToken();
     } catch (refreshError) {
-      storage.clearField(LOCAL_STORAGE_KEYS.ACCESS_TOKEN);
-      storage.clearField(LOCAL_STORAGE_KEYS.REFRESH_TOKEN);
+      storage.clearSession();
       window.location.href = "/auth/login";
       return Promise.reject(refreshError);
     }
 
     originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
 
-    // Outside the catch on purpose: a 500 from the replayed request is the
-    // endpoint failing, not the session, and must not sign the user out.
     return Axios(originalRequest);
   },
 );
