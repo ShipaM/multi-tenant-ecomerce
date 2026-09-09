@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { Outlet } from "react-router";
-import PlatfromLogo from "@/assets/platform-logo.png";
+import PlatformLogo from "@/assets/platform-logo.png";
 
 import { RouteFallback } from "@/components/route-fallback";
 
@@ -10,9 +10,9 @@ const AuthLayout = () => {
       <div className="hidden lg:flex flex-col justify-between bg-linear-to-br from-[#06251A] to-[#10543A] p-12 lg:w-110 xl:w-125">
         <div className="flex items-center gap-3">
           <img
-            src={PlatfromLogo}
+            src={PlatformLogo}
             alt="Platform Admin Logo"
-            className="size-12 roundd-xl shadow-lg shadow-black/20"
+            className="size-12 rounded-xl shadow-lg shadow-black/20"
           />
           <span className="text-base font-bold text-white">Platform Admin</span>
         </div>
