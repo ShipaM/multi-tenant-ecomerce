@@ -14,10 +14,13 @@ export interface User {
   email: string;
   fullName: string;
   userType: USER_TYPE;
+  profileImage?: string;
   id: string;
   phone: string;
   status: "ACTIVE" | "INACTIVE";
   twoFactorEnabled?: boolean;
   createdAt: Date;
   updatedAt: Date;
+  // Initials derived on the client from fullName/email for the avatar fallback.
+  avatarName?: string;
 }

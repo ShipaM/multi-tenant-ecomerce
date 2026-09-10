@@ -32,6 +32,7 @@ async function main() {
       twoFactorEnabled: false,
       phone: '3850006879',
       fullName: 'Shipino Maksim',
+      profileImage: 'https://github.com/shadcn.png',
     },
   });
 

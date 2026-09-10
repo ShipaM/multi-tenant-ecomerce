@@ -17,6 +17,18 @@ const readStoredUserType = (): USER_TYPE | null => {
   return isUserType(storedUserType) ? storedUserType : null;
 };
 
+const buildAvatarName = (fullName?: string | null, email?: string): string => {
+  const words = (fullName ?? "").trim().split(/\s+/).filter(Boolean);
+
+  if (words.length > 0) {
+    const first = words[0]?.[0] ?? "";
+    const last = words.length > 1 ? (words[words.length - 1]?.[0] ?? "") : "";
+    return `${first}${last}`.toUpperCase();
+  }
+
+  return email?.trim()?.[0]?.toUpperCase() ?? "?";
+};
+
 const initialState: AuthState = {
   user: null,
   accessToken: storage.getAccessToken(),
@@ -71,6 +83,15 @@ export const authSlice = createSlice({
     clearAuthError(state) {
       state.error = null;
     },
+    logout(state) {
+      storage.clearSession();
+      state.user = null;
+      state.accessToken = null;
+      state.refreshToken = null;
+      state.userType = null;
+      state.status = "idle";
+      state.error = null;
+    },
   },
 
   extraReducers: (builder) => {
@@ -101,7 +122,13 @@ export const authSlice = createSlice({
       })
       .addCase(fetchMe.fulfilled, (state, action) => {
         state.status = "succeeded";
-        state.user = action.payload;
+        state.user = {
+          ...action.payload,
+          avatarName: buildAvatarName(
+            action.payload?.fullName,
+            action.payload?.email,
+          ),
+        };
       })
       .addCase(fetchMe.rejected, (state, action) => {
         state.status = "failed";
@@ -113,5 +140,7 @@ export const authSlice = createSlice({
       });
   },
 });
+
+export const { clearAuthError, logout } = authSlice.actions;
 
 export default authSlice.reducer;

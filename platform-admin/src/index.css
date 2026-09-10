@@ -72,15 +72,16 @@
   --chart-3: oklch(0.617 0.123 69.591);
   --chart-4: oklch(0.238 0.042 165.902);
   --chart-5: oklch(0.857 0.17 134.555);
-  --radius: 0.75rem;
-  --sidebar: oklch(1 0 0);
-  --sidebar-foreground: oklch(0.22 0.031 161.8);
-  --sidebar-primary: oklch(0.515 0.11 158.338);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.973 0.009 150.692);
-  --sidebar-accent-foreground: oklch(0.22 0.031 161.8);
-  --sidebar-border: oklch(0.896 0.03 151.488);
-  --sidebar-ring: oklch(0.515 0.11 158.338);
+  --radius: 0.5rem;
+  /* The sidebar is dark in both themes, so its tokens stay dark-on-light here. */
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.723 0.219 149.579);
+  --sidebar-primary-foreground: oklch(0.982 0.018 155.826);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
 }
 
 .dark {

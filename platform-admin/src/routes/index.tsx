@@ -13,6 +13,17 @@ const ForgotPasswordPage = lazy(routeModules.forgotPassword);
 const VerifyOtpPage = lazy(routeModules.verifyOtp);
 const ResetPasswordPage = lazy(routeModules.resetPassword);
 const DashboardPage = lazy(routeModules.dashboard);
+const SellersPage = lazy(routeModules.sellers);
+const CommisionPayoutsPage = lazy(routeModules.commisionPayouts);
+const GlobalCatalogPage = lazy(routeModules.globalCatalog);
+const DeliveryNetworkPage = lazy(routeModules.deliveryNetwork);
+const CustomersPage = lazy(routeModules.customers);
+const OrdersPage = lazy(routeModules.orders);
+const SupportPage = lazy(routeModules.support);
+const MarketingPage = lazy(routeModules.marketing);
+const ReportsPage = lazy(routeModules.reports);
+const UsersPermissionsPage = lazy(routeModules.usersPermissions);
+const SettingsPage = lazy(routeModules.settings);
 
 export const AppRoutes = () => {
   return (
@@ -30,6 +41,20 @@ export const AppRoutes = () => {
       <Route element={<ProtectedRoute />}>
         <Route path="dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardPage />} />
+          <Route path="sellers" element={<SellersPage />} />
+          <Route path="commision-payouts" element={<CommisionPayoutsPage />} />
+          <Route path="global-catalog" element={<GlobalCatalogPage />} />
+          <Route path="delivery-network" element={<DeliveryNetworkPage />} />
+          <Route path="customers" element={<CustomersPage />} />
+          <Route path="orders" element={<OrdersPage />} />
+          <Route path="support" element={<SupportPage />} />
+          <Route path="marketing" element={<MarketingPage />} />
+          <Route path="reports" element={<ReportsPage />} />
+          <Route
+            path="users-permissions"
+            element={<UsersPermissionsPage />}
+          />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Route>
 

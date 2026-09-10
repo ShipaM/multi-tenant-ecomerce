@@ -54,6 +54,7 @@ export class AuthController {
   }
 
   @Get('me')
+  @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   me(@CurrentUser() user: AuthenticatedUser) {
     const data = this.authService.me(user.userId);
