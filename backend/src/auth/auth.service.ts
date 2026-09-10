@@ -33,6 +33,8 @@ export interface LoginResponse extends TokenPair {
   userType: UserType;
 }
 
+export type PublicUser = Omit<User, 'passwordHash' | 'twoFactorSecret'>;
+
 const REFRESH_TOKEN_HASH_LABEL = 'refresh-token:';
 
 const ABSENT_USER_PASSWORD_HASH =
@@ -205,6 +207,21 @@ export class AuthService {
   private refreshTokenExpiresAt(refreshToken: string): Date {
     const { exp } = this.jwtService.decode<{ exp: number }>(refreshToken);
 
+    console.log(exp);
+
     return new Date(exp * 1000);
+  }
+
+  async me(userId: string): Promise<PublicUser> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      omit: { passwordHash: true, twoFactorSecret: true },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid access token');
+    }
+
+    return user;
   }
 }

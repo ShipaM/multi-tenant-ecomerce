@@ -4,12 +4,15 @@ import { Navigate, Route, Routes } from "react-router";
 import AuthLayout from "@/layouts/AuthLayout";
 import { RootRedirect } from "@/routes/root-redirect";
 import { routeModules } from "@/routes/route-modules";
+import DashboardLayout from "@/layouts/DashboardLayout";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 const LoginPage = lazy(routeModules.login);
 const NotFoundPage = lazy(routeModules.notFound);
 const ForgotPasswordPage = lazy(routeModules.forgotPassword);
 const VerifyOtpPage = lazy(routeModules.verifyOtp);
 const ResetPasswordPage = lazy(routeModules.resetPassword);
+const DashboardPage = lazy(routeModules.dashboard);
 
 export const AppRoutes = () => {
   return (
@@ -22,6 +25,12 @@ export const AppRoutes = () => {
         <Route path="forgot-password" element={<ForgotPasswordPage />} />
         <Route path="forgot-password/otp" element={<VerifyOtpPage />} />
         <Route path="reset-password" element={<ResetPasswordPage />} />
+      </Route>
+
+      <Route element={<ProtectedRoute />}>
+        <Route path="dashboard" element={<DashboardLayout />}>
+          <Route index element={<DashboardPage />} />
+        </Route>
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />

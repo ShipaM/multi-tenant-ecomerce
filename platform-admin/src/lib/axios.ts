@@ -1,4 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
+import type { TokenPair } from "@/types";
 import { LOCAL_STORAGE_KEYS, storage } from "./storage";
 
 const baseURL =
@@ -38,10 +39,7 @@ async function requestTokenPair(): Promise<string> {
   const refreshToken = storage.getRefreshToken();
   if (!refreshToken) throw new Error("No refresh token available");
 
-  const response = await refreshClient.post<{
-    accessToken: string;
-    refreshToken: string;
-  }>("/auth/refresh", {
+  const response = await refreshClient.post<TokenPair>("/auth/refresh", {
     refreshToken,
   });
 

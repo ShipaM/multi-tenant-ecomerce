@@ -1,45 +1,31 @@
-import {
-  authApi,
-  isCompleteLoginResponse,
-  type LoginPayload,
-  type LoginResponse,
-} from "@/api/auth";
+import { authApi } from "@/api/auth";
 import { getAxiosErrorMessage } from "@/lib/api.error";
 import { LOCAL_STORAGE_KEYS, storage } from "@/lib/storage";
-import { isUserType, type USER_TYPE } from "@/types/user";
+import {
+  isCompleteLoginResponse,
+  isUserType,
+  type AuthState,
+  type LoginPayload,
+  type LoginResponse,
+  type USER_TYPE,
+  type User,
+} from "@/types";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
-interface User {
-  email: string;
-  fullName: string;
-}
-
-export type AsyncStatus =
-  "idle" | "pending" | "succeeded" | "failed" | "loading";
-
-interface AuthState {
-  user: User | null;
-  accessToken: string | null;
-  refreshToken: string | null;
-  // Null until a session exists: defaulting to a role would make a signed-out
-  // visitor look like a platform admin to any future role check.
-  userType: USER_TYPE | null;
-  status: AsyncStatus;
-  error: string | null;
-}
-
-// Read once per app load rather than from an effect, so a reload restores the
-// session before the first render instead of flashing a signed-out state.
-const storedUserType = storage.getUserType();
+const readStoredUserType = (): USER_TYPE | null => {
+  const storedUserType = storage.getUserType();
+  return isUserType(storedUserType) ? storedUserType : null;
+};
 
 const initialState: AuthState = {
   user: null,
   accessToken: storage.getAccessToken(),
   refreshToken: storage.getRefreshToken(),
-  userType: isUserType(storedUserType) ? storedUserType : null,
+  userType: readStoredUserType(),
   status: "idle",
   error: null,
 };
+
 export const fetchLogin = createAsyncThunk<
   LoginResponse,
   LoginPayload,
@@ -48,8 +34,6 @@ export const fetchLogin = createAsyncThunk<
   try {
     const tokens = await authApi.login(payload);
 
-    // A partial body leaves the session half built, so it is rejected before
-    // anything is persisted.
     if (!isCompleteLoginResponse(tokens)) {
       return rejectWithValue("Could not Sign in: incomplete response");
     }
@@ -59,9 +43,26 @@ export const fetchLogin = createAsyncThunk<
     storage.setItem(LOCAL_STORAGE_KEYS.USER_TYPE, tokens.userType);
     return tokens;
   } catch (error) {
+    storage.clearSession();
     return rejectWithValue(getAxiosErrorMessage(error, "Could not Sign in"));
   }
 });
+
+export const fetchMe = createAsyncThunk<User, void, { rejectValue: string }>(
+  "auth/fetchMe",
+  async (_, { rejectWithValue }) => {
+    try {
+      const data = await authApi.me();
+
+      return data;
+    } catch (error) {
+      storage.clearSession();
+      return rejectWithValue(
+        getAxiosErrorMessage(error, "Could not load the current user"),
+      );
+    }
+  },
+);
 
 export const authSlice = createSlice({
   name: "auth",
@@ -87,6 +88,25 @@ export const authSlice = createSlice({
       .addCase(fetchLogin.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload ?? "Could not Sign in";
+        state.accessToken = null;
+        state.refreshToken = null;
+        state.userType = null;
+      });
+
+    builder
+      .addCase(fetchMe.pending, (state) => {
+        state.status = "loading";
+        state.user = null;
+        state.error = null;
+      })
+      .addCase(fetchMe.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        state.user = action.payload;
+      })
+      .addCase(fetchMe.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload ?? "Could not load the current user";
+        state.user = null;
         state.accessToken = null;
         state.refreshToken = null;
         state.userType = null;
