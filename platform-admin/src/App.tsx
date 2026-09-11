@@ -10,9 +10,7 @@ function App() {
     <RouteErrorBoundary>
       <ScrollToTop />
       <Suspense fallback={<RouteFallback fullscreen />}>
-        <main>
-          <AppRoutes />
-        </main>
+        <AppRoutes />
       </Suspense>
     </RouteErrorBoundary>
   );

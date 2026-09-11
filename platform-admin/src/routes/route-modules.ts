@@ -20,6 +20,7 @@ export const routeModules = {
   usersPermissions: () =>
     import("@/pages/dashboard/users-permissions/UsersPermissionsPage"),
   settings: () => import("@/pages/dashboard/settings/SettingsPage"),
+  profile: () => import("@/pages/dashboard/account/ProfileDetailsPage"),
 } as const;
 
 export type RouteModuleKey = keyof typeof routeModules;

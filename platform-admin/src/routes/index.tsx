@@ -24,6 +24,7 @@ const MarketingPage = lazy(routeModules.marketing);
 const ReportsPage = lazy(routeModules.reports);
 const UsersPermissionsPage = lazy(routeModules.usersPermissions);
 const SettingsPage = lazy(routeModules.settings);
+const ProfilePage = lazy(routeModules.profile);
 
 export const AppRoutes = () => {
   return (
@@ -50,11 +51,9 @@ export const AppRoutes = () => {
           <Route path="support" element={<SupportPage />} />
           <Route path="marketing" element={<MarketingPage />} />
           <Route path="reports" element={<ReportsPage />} />
-          <Route
-            path="users-permissions"
-            element={<UsersPermissionsPage />}
-          />
+          <Route path="users-permissions" element={<UsersPermissionsPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="my-account" element={<ProfilePage />} />
         </Route>
       </Route>
 
