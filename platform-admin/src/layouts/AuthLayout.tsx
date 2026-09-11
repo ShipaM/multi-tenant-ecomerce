@@ -29,9 +29,9 @@ const AuthLayout = () => {
         </div>
 
         <div>
-          <h1 className="max-w-95 text-2xl leading-snug font-bold text-white">
+          <p className="max-w-95 text-2xl leading-snug font-bold text-white">
             Run every store on your marketplace from one place.
-          </h1>
+          </p>
           <p className="mt-3.5 max-w-90 text-sm leading-5 text-[#c7dccb]">
             Tenants, catalog, commissions, delivery network and reporting —
             unified across every store on the platform.
@@ -42,11 +42,11 @@ const AuthLayout = () => {
           &copy; 2026 Dynamic Coding with Amit
         </p>
       </div>
-      <div className="flex flex-1 items-center justify-center bg-background p-8">
+      <main className="flex flex-1 items-center justify-center bg-background p-8">
         <Suspense fallback={<RouteFallback />}>
           <Outlet />
         </Suspense>
-      </div>
+      </main>
     </div>
   );
 };

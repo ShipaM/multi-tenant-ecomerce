@@ -43,7 +43,7 @@ const ForgotPassowordPage = () => {
         Back
       </PrefetchLink>
 
-      <h2 className="text-2xl font-bold">Forgot Password</h2>
+      <h1 className="text-2xl font-bold">Forgot Password</h1>
       <p className="mt-1.5 text-sm text-muted-foreground">
         We'll email a 6 digit code to your email address.
       </p>

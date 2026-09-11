@@ -36,13 +36,14 @@ const DashboardLayout = () => {
           <div className="max-w-sm lg:max-w-sm h-10 w-full">
             <SearchIcon className="size-4 absolute ml-3 mt-3 text-primary" />
             <Input
+              aria-label="Search"
               placeholder="search store, order, agent..."
               className="w-full h-full pl-8"
             />
           </div>
           <div className="ml-auto">
             <Popover>
-              <PopoverTrigger>
+              <PopoverTrigger aria-label="Account menu">
                 <UserAvatar user={user} className="cursor-pointer" />
               </PopoverTrigger>
               <PopoverContent>
@@ -59,11 +60,12 @@ const DashboardLayout = () => {
           </div>
         </header>
 
-        <main className="flex flex-1 flex-col">
+        {/* SidebarInset already renders a <main>, so this stays a <div> to avoid a nested main landmark. */}
+        <div className="flex flex-1 flex-col">
           <Suspense fallback={<RouteFallback />}>
             <Outlet />
           </Suspense>
-        </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

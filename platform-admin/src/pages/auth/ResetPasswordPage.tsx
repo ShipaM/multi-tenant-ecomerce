@@ -52,7 +52,7 @@ const ResetPassword = () => {
         <div className="flex size-16 items-center justify-center rounded-full bg-accent">
           <CheckCircle2 className="size-6 text-primary" />
         </div>
-        <h2 className="mt-4 text-2xl font-bold">Password Updated</h2>
+        <h1 className="mt-4 text-2xl font-bold">Password Updated</h1>
         <p className="mt-2 text-sm text-muted-foreground text-center">
           Your passowrd has been reset. You can now sign in with your new
           passoword.
@@ -68,7 +68,7 @@ const ResetPassword = () => {
 
   return (
     <div className="w-full max-w-sm">
-      <h2 className="text-2xl font-bold">Set a new Password</h2>
+      <h1 className="text-2xl font-bold">Set a new Password</h1>
       <p className="mt-1.5 text-sm text-muted-foreground">
         {email ? (
           <>

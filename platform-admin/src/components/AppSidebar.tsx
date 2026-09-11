@@ -131,16 +131,14 @@ export const AppSidebar = () => {
   return (
     <Sidebar>
       <SidebarHeader>
-        <SidebarMenu>
-          <div className="flex items-center gap-3 p-4">
-            <img
-              src={PlatformLogo}
-              alt="Platform Admin Logo"
-              className="size-10 rounded-xl"
-            />
-            <span className="text-base font-bold text-white">Platform</span>
-          </div>
-        </SidebarMenu>
+        <div className="flex items-center gap-3 p-4">
+          <img
+            src={PlatformLogo}
+            alt="Platform Admin Logo"
+            className="size-10 rounded-xl"
+          />
+          <span className="text-base font-bold text-white">Platform</span>
+        </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -160,6 +158,7 @@ export const AppSidebar = () => {
                       to={item.href}
                       prefetchModule={item.routemodule}
                       className="flex gap-2 font-inherit"
+                      aria-current={isActive ? "page" : undefined}
                     >
                       <item.Icon className="size-5" />
                       {item.label}

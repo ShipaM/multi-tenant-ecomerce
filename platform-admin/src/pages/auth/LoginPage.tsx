@@ -51,7 +51,7 @@ const LoginPage = () => {
 
   return (
     <div className="w-full max-w-sm">
-      <h2 className="text-2xl font-bold">Sign In</h2>
+      <h1 className="text-2xl font-bold">Sign In</h1>
       <p>Access the platform admin console</p>
       <form className="mt-7" onSubmit={handleSubmit}>
         <FieldGroup>

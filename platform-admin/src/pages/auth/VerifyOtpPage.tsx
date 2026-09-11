@@ -52,7 +52,7 @@ const VerifyForgotOtpPage = () => {
         Back
       </PrefetchLink>
 
-      <h2 className="text-2xl font-bold">Enter Verification otp</h2>
+      <h1 className="text-2xl font-bold">Enter Verification otp</h1>
       <p className="mt-1.5 text-sm text-muted-foreground">
         {email ? (
           <>
