@@ -1,21 +1,15 @@
 import { authApi } from "@/api/auth";
 import { getAxiosErrorMessage } from "@/lib/api.error";
-import { LOCAL_STORAGE_KEYS, storage } from "@/lib/storage";
+import { storage } from "@/lib/storage";
 import {
   isCompleteLoginResponse,
-  isUserType,
   type AuthState,
   type LoginPayload,
   type LoginResponse,
-  type USER_TYPE,
+  type LogoutResponse,
   type User,
 } from "@/types";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-
-const readStoredUserType = (): USER_TYPE | null => {
-  const storedUserType = storage.getUserType();
-  return isUserType(storedUserType) ? storedUserType : null;
-};
 
 const buildAvatarName = (fullName?: string | null, email?: string): string => {
   const words = (fullName ?? "").trim().split(/\s+/).filter(Boolean);
@@ -33,7 +27,7 @@ const initialState: AuthState = {
   user: null,
   accessToken: storage.getAccessToken(),
   refreshToken: storage.getRefreshToken(),
-  userType: readStoredUserType(),
+  userType: "PLATFORM_ADMIN",
   status: "idle",
   error: null,
 };
@@ -50,12 +44,10 @@ export const fetchLogin = createAsyncThunk<
       return rejectWithValue("Could not Sign in: incomplete response");
     }
 
-    storage.setItem(LOCAL_STORAGE_KEYS.ACCESS_TOKEN, tokens.accessToken);
-    storage.setItem(LOCAL_STORAGE_KEYS.REFRESH_TOKEN, tokens.refreshToken);
-    storage.setItem(LOCAL_STORAGE_KEYS.USER_TYPE, tokens.userType);
+    storage.setTokens(tokens.accessToken, tokens.refreshToken);
     return tokens;
   } catch (error) {
-    storage.clearSession();
+    storage.clearStoradge();
     return rejectWithValue(getAxiosErrorMessage(error, "Could not Sign in"));
   }
 });
@@ -68,7 +60,7 @@ export const fetchMe = createAsyncThunk<User, void, { rejectValue: string }>(
 
       return data;
     } catch (error) {
-      storage.clearSession();
+      storage.clearStoradge();
       return rejectWithValue(
         getAxiosErrorMessage(error, "Could not load the current user"),
       );
@@ -76,20 +68,25 @@ export const fetchMe = createAsyncThunk<User, void, { rejectValue: string }>(
   },
 );
 
+export const fetchLogout = createAsyncThunk<
+  LogoutResponse,
+  void,
+  { rejectValue: string }
+>("auth/fetchLogout", async (_, { rejectWithValue }) => {
+  try {
+    const data = await authApi.logout();
+
+    return data;
+  } catch (error) {
+    return rejectWithValue(getAxiosErrorMessage(error, "Could not Sign out"));
+  }
+});
+
 export const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
     clearAuthError(state) {
-      state.error = null;
-    },
-    logout(state) {
-      storage.clearSession();
-      state.user = null;
-      state.accessToken = null;
-      state.refreshToken = null;
-      state.userType = null;
-      state.status = "idle";
       state.error = null;
     },
   },
@@ -138,9 +135,33 @@ export const authSlice = createSlice({
         state.refreshToken = null;
         state.userType = null;
       });
+
+    builder
+      .addCase(fetchLogout.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(fetchLogout.fulfilled, (state) => {
+        state.status = "idle";
+        state.user = null;
+        state.accessToken = null;
+        state.refreshToken = null;
+        state.userType = null;
+        state.error = null;
+        storage.clearStoradge();
+      })
+      .addCase(fetchLogout.rejected, (state, action) => {
+        state.status = "idle";
+        state.user = null;
+        state.accessToken = null;
+        state.refreshToken = null;
+        state.userType = null;
+        state.error = action.payload ?? "Could not Sign out";
+        storage.clearStoradge();
+      });
   },
 });
 
-export const { clearAuthError, logout } = authSlice.actions;
+export const { clearAuthError } = authSlice.actions;
 
 export default authSlice.reducer;

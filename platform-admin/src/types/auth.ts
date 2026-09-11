@@ -32,3 +32,7 @@ export const isCompleteLoginResponse = (
   typeof data.refreshToken === "string" &&
   data.refreshToken.length > 0 &&
   isUserType(data.userType);
+
+export type LogoutResponse = {
+  success: boolean;
+};

@@ -1,6 +1,6 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import type { TokenPair } from "@/types";
-import { LOCAL_STORAGE_KEYS, storage } from "./storage";
+import { storage } from "./storage";
 
 const baseURL =
   import.meta.env.VITE_APP_API_BASE_URL || "http://localhost:4000";
@@ -43,8 +43,7 @@ async function requestTokenPair(): Promise<string> {
     refreshToken,
   });
 
-  storage.setItem(LOCAL_STORAGE_KEYS.ACCESS_TOKEN, response.data.accessToken);
-  storage.setItem(LOCAL_STORAGE_KEYS.REFRESH_TOKEN, response.data.refreshToken);
+  storage.setTokens(response.data.accessToken, response.data.refreshToken);
 
   return response.data.accessToken;
 }
@@ -85,7 +84,7 @@ Axios.interceptors.response.use(
     try {
       newAccessToken = await fetchRefreshToken();
     } catch (refreshError) {
-      storage.clearSession();
+      storage.clearStoradge();
       window.location.href = "/auth/login";
       return Promise.reject(refreshError);
     }

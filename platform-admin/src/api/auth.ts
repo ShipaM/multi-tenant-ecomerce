@@ -1,5 +1,10 @@
 import { Axios } from "@/lib/axios";
-import type { LoginPayload, LoginResponse, User } from "@/types";
+import type {
+  LoginPayload,
+  LoginResponse,
+  LogoutResponse,
+  User,
+} from "@/types";
 
 export const authApi = {
   login: (loginPayload: LoginPayload) =>
@@ -8,4 +13,9 @@ export const authApi = {
     ),
 
   me: () => Axios.get<User>("/auth/me").then((response) => response.data),
+
+  logout: () =>
+    Axios.post<LogoutResponse>("/auth/logout").then(
+      (response) => response.data,
+    ),
 };

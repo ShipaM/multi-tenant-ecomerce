@@ -37,6 +37,7 @@ export type PublicUser = Omit<User, 'passwordHash' | 'twoFactorSecret'>;
 
 const REFRESH_TOKEN_HASH_LABEL = 'refresh-token:';
 
+// Prevents email enumeration by keeping bcrypt response time consistent.
 const ABSENT_USER_PASSWORD_HASH =
   '$2b$10$GX4mLMIX82K.eEI3w8woCO8T3jagNaeEqpN24ykRftkNU9Prbtj4S';
 
@@ -49,6 +50,7 @@ export class AuthService {
     private readonly config: ConfigService,
   ) {}
 
+  // Checks email + password and, if valid, starts a new session by issuing an access/refresh token pair.
   async login(
     email: string,
     password: string,
@@ -56,6 +58,7 @@ export class AuthService {
   ): Promise<LoginResponse> {
     const user = await this.usersService.findByEmail(email);
 
+    // Use a real or dummy hash to keep timing consistent for all users.
     const passwordMatches = await bcrypt.compare(
       password,
       user?.passwordHash ?? ABSENT_USER_PASSWORD_HASH,
@@ -74,7 +77,7 @@ export class AuthService {
     return { ...tokens, userType: user.userType };
   }
 
-  /// Opens a brand new session row for a fresh sign-in.
+  // Creates a session and signs a token pair for revocation and refresh.
   async issueTokenPair(
     user: User,
     context: LoginContext = {},
@@ -89,6 +92,8 @@ export class AuthService {
         deviceLabel: context.deviceLabel,
         ipAddress: context.ipAddress,
 
+        // The refresh token itself is never stored, only its hash — see
+        // hashRefreshToken() below.
         refreshTokenHash: this.hashRefreshToken(tokens.refreshToken),
         expiresAt: this.refreshTokenExpiresAt(tokens.refreshToken),
       },
@@ -97,12 +102,14 @@ export class AuthService {
     return tokens;
   }
 
+  // Rotates the refresh token, replacing the old one with a new token pair.
   async refresh(
     refreshToken: string,
     context: LoginContext = {},
   ): Promise<TokenPair> {
     let payload: RefreshTokenPayload;
 
+    // Step 1: the token must be a validly signed, non-expired JWT.
     try {
       payload = await this.jwtService.verifyAsync<RefreshTokenPayload>(
         refreshToken,
@@ -112,6 +119,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
+    // Step 2: Validate that the session is active and not expired.
     const session = await this.prisma.userSession.findUnique({
       where: { id: payload.sessionId },
       include: { user: true },
@@ -121,6 +129,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
+    // Step 3: Verify the token matches the session to prevent token forgery.
     if (!this.refreshTokenMatches(refreshToken, session.refreshTokenHash)) {
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -129,6 +138,7 @@ export class AuthService {
       throw new ForbiddenException('This account is not active');
     }
 
+    // Step 4: Rotate the token pair and save its hash to the same session.
     const tokens = await this.signTokenPair(session.user, session.id);
 
     await this.prisma.userSession.update({
@@ -145,6 +155,8 @@ export class AuthService {
     return tokens;
   }
 
+  // Revokes the session; JwtStrategy checks revokedAt on every request, so the
+  // existing access token stops working immediately, not just after it expires.
   async logout(sessionId: string): Promise<void> {
     await this.prisma.userSession.updateMany({
       where: { id: sessionId, revokedAt: null },
@@ -152,6 +164,7 @@ export class AuthService {
     });
   }
 
+  // Signs access and refresh JWTs in parallel, each with its own secret and expiry.
   private async signTokenPair(
     user: User,
     sessionId: string,
@@ -182,6 +195,7 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
+  // Stores only the HMAC hash to keep leaked tokens unusable.
   private hashRefreshToken(refreshToken: string): string {
     return createHmac(
       'sha256',
@@ -191,6 +205,7 @@ export class AuthService {
       .digest('hex');
   }
 
+  // Safely compares token hashes to prevent timing attacks.
   private refreshTokenMatches(refreshToken: string, storedHash: string) {
     const candidate = Buffer.from(this.hashRefreshToken(refreshToken), 'hex');
     const stored = Buffer.from(storedHash, 'hex');
@@ -200,18 +215,19 @@ export class AuthService {
     );
   }
 
+  // Small helper so JWT expiry values (e.g. "15m", "7d") are read from config in one place.
   private expiresIn(key: string): ExpiresIn {
     return this.config.getOrThrow<string>(key) as ExpiresIn;
   }
 
+  // Reads the "exp" claim out of the freshly signed refresh JWT so the session row's expiresAt matches the token's real expiry exactly.
   private refreshTokenExpiresAt(refreshToken: string): Date {
     const { exp } = this.jwtService.decode<{ exp: number }>(refreshToken);
-
-    console.log(exp);
 
     return new Date(exp * 1000);
   }
 
+  // Returns the current user's public profile (used by "GET /me"-style endpoints). Sensitive fields are excluded via Prisma's `omit`.
   async me(userId: string): Promise<PublicUser> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
