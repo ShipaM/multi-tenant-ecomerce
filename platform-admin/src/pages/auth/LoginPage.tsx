@@ -6,11 +6,18 @@ import { Spinner } from "@/components/ui/spinner";
 import { useState, type SubmitEvent } from "react";
 import { useAppDispatch } from "@/hooks/use-store";
 import { fetchLogin } from "@/store/auth/authSlice";
-import { useNavigate } from "react-router";
+import { isSafeRedirectPath } from "@/lib/redirect";
+import { useNavigate, useSearchParams } from "react-router";
 
 const LoginPage = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectParam = searchParams.get("redirectTo");
+  const redirectTo =
+    redirectParam && isSafeRedirectPath(redirectParam)
+      ? redirectParam
+      : "/dashboard";
 
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
@@ -26,7 +33,7 @@ const LoginPage = () => {
 
     try {
       await dispatch(fetchLogin({ email, password })).unwrap();
-      navigate("/dashboard");
+      navigate(redirectTo, { replace: true });
     } catch (error) {
       setError(typeof error === "string" ? error : "Failed to login");
     } finally {
