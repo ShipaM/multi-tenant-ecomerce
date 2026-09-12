@@ -26,7 +26,7 @@ import {
 } from "./ui/sidebar";
 import PlatformLogo from "@/assets/platform-logo.png";
 import { PrefetchLink } from "./PrefetchLink";
-import { useLocation, useNavigate } from "react-router";
+import { useLocation } from "react-router";
 import { cn } from "cn";
 import type { RouteModuleKey } from "@/routes/route-modules";
 import { useAppDispatch, useAppSelector } from "@/hooks/use-store";
@@ -117,7 +117,6 @@ const SIDEBAR_NAV_ITEMS: SidebarNavItem[] = [
 
 export const AppSidebar = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.auth.user);
   const logoutLoading =
@@ -125,7 +124,6 @@ export const AppSidebar = () => {
 
   const handleLogout = () => {
     dispatch(fetchLogout());
-    navigate("/auth/login", { replace: true });
   };
 
   return (

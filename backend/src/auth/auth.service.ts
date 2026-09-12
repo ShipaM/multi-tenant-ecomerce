@@ -13,6 +13,7 @@ import { User } from '../generated/prisma/client.js';
 import { UserStatus, UserType } from '../generated/prisma/enums.js';
 import { ExpiresIn } from '../config/env.validation.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { PublicUser } from '../users/types/public-user.type.js';
 import { UsersService } from '../users/users.service.js';
 import {
   JwtAccessPayload,
@@ -32,8 +33,6 @@ export interface TokenPair {
 export interface LoginResponse extends TokenPair {
   userType: UserType;
 }
-
-export type PublicUser = Omit<User, 'passwordHash' | 'twoFactorSecret'>;
 
 const REFRESH_TOKEN_HASH_LABEL = 'refresh-token:';
 

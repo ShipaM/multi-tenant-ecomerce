@@ -20,7 +20,7 @@ export const ProtectedRoute = () => {
     const redirectTarget = `${location.pathname}${location.search}`;
     return (
       <Navigate
-        to={`/auth/login?redirectTo=${encodeURIComponent(redirectTarget)}`}
+        to={`/auth/login?redirect_uri=${encodeURIComponent(redirectTarget)}`}
         replace
       />
     );

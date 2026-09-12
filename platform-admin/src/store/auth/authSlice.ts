@@ -7,6 +7,7 @@ import {
   type LoginPayload,
   type LoginResponse,
   type LogoutResponse,
+  type UpdateProfilePayload,
   type User,
 } from "@/types";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
@@ -81,6 +82,25 @@ export const fetchLogout = createAsyncThunk<
     return rejectWithValue(getAxiosErrorMessage(error, "Could not Sign out"));
   }
 });
+
+export const updateUser = createAsyncThunk<
+  User,
+  UpdateProfilePayload,
+  { rejectValue: string }
+>(
+  "auth/updateUser",
+  async (payload: UpdateProfilePayload, { rejectWithValue }) => {
+    try {
+      const data = await authApi.updateUser(payload);
+
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        getAxiosErrorMessage(error, "Failed to update the current user"),
+      );
+    }
+  },
+);
 
 export const authSlice = createSlice({
   name: "auth",
@@ -159,6 +179,21 @@ export const authSlice = createSlice({
         state.error = action.payload ?? "Could not Sign out";
         storage.clearStoradge();
       });
+
+    // updateUser intentionally never touches state.status/state.error: that
+    // pair also gates ProtectedRoute's "session is valid" check (status ===
+    // "failed" forces a redirect to /auth/login), and a profile-edit failure
+    // (e.g. a duplicate email) is not a session failure. EditProfile keeps
+    // its own local submitting/error state instead.
+    builder.addCase(updateUser.fulfilled, (state, action) => {
+      state.user = {
+        ...action.payload,
+        avatarName: buildAvatarName(
+          action.payload?.fullName,
+          action.payload?.email,
+        ),
+      };
+    });
   },
 });
 

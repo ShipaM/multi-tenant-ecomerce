@@ -3,6 +3,7 @@ import type {
   LoginPayload,
   LoginResponse,
   LogoutResponse,
+  UpdateProfilePayload,
   User,
 } from "@/types";
 
@@ -18,4 +19,7 @@ export const authApi = {
     Axios.post<LogoutResponse>("/auth/logout").then(
       (response) => response.data,
     ),
+
+  updateUser: (payload: UpdateProfilePayload) =>
+    Axios.put<User>("/users/me", payload).then((response) => response.data),
 };

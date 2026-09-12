@@ -60,8 +60,7 @@ const DashboardLayout = () => {
           </div>
         </header>
 
-        {/* SidebarInset already renders a <main>, so this stays a <div> to avoid a nested main landmark. */}
-        <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col bg-accent/50 p-4 lg:p-6 min-h-[calc(100vh-64px)] container mx-auto">
           <Suspense fallback={<RouteFallback />}>
             <Outlet />
           </Suspense>

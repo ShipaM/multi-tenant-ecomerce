@@ -13,7 +13,7 @@ const LoginPage = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const redirectParam = searchParams.get("redirectTo");
+  const redirectParam = searchParams.get("redirect_uri");
   const redirectTo =
     redirectParam && isSafeRedirectPath(redirectParam)
       ? redirectParam
