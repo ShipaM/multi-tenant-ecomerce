@@ -4,13 +4,14 @@ import { FieldGroup, Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useState, type SubmitEvent } from "react";
-import { useAppDispatch } from "@/hooks/use-store";
+import { useAppDispatch, useAppSelector } from "@/hooks/use-store";
 import { fetchLogin } from "@/store/auth/authSlice";
 import { isSafeRedirectPath } from "@/lib/redirect";
 import { useNavigate, useSearchParams } from "react-router";
 
 const LoginPage = () => {
   const dispatch = useAppDispatch();
+  const isLoginLoading = useAppSelector((state) => state.auth.isLoginLoading);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectParam = searchParams.get("redirect_uri");
@@ -22,13 +23,11 @@ const LoginPage = () => {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
 
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    setIsSubmitting(true);
     setError(null);
 
     try {
@@ -36,17 +35,7 @@ const LoginPage = () => {
       navigate(redirectTo, { replace: true });
     } catch (error) {
       setError(typeof error === "string" ? error : "Failed to login");
-    } finally {
-      setIsSubmitting(false);
     }
-
-    // setError(null);
-    // setIsSubmitting(true);
-    // setTimeout(() => {
-    //   setIsSubmitting(false);
-    //   setPassword("");
-    //   setEmail("");
-    // }, 2000);
   };
 
   return (
@@ -66,7 +55,7 @@ const LoginPage = () => {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              disabled={isSubmitting}
+              disabled={isLoginLoading}
             />
           </Field>
 
@@ -90,7 +79,7 @@ const LoginPage = () => {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              disabled={isSubmitting}
+              disabled={isLoginLoading}
             />
           </Field>
 
@@ -99,9 +88,9 @@ const LoginPage = () => {
           <Button
             type="submit"
             className="mt-2 h-11 w-full"
-            disabled={isSubmitting}
+            disabled={isLoginLoading}
           >
-            {isSubmitting ? (
+            {isLoginLoading ? (
               <>
                 <Spinner className="size-4" />
                 Signing in...

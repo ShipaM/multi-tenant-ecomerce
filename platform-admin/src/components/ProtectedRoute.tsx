@@ -6,7 +6,7 @@ import { Navigate, Outlet, useLocation } from "react-router";
 export const ProtectedRoute = () => {
   const dispatch = useAppDispatch();
   const location = useLocation();
-  const { accessToken, status, user } = useAppSelector((state) => state.auth);
+  const { accessToken, user } = useAppSelector((state) => state.auth);
 
   const hasToken = Boolean(accessToken);
 
@@ -16,7 +16,7 @@ export const ProtectedRoute = () => {
     }
   }, [dispatch, hasToken]);
 
-  if (!hasToken || status === "failed") {
+  if (!hasToken) {
     const redirectTarget = `${location.pathname}${location.search}`;
     return (
       <Navigate

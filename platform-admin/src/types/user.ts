@@ -33,3 +33,10 @@ export type UpdateProfilePayload = {
   phone: string;
   profileImage?: string;
 };
+
+// Mirrors backend/src/users/types/public-user.type.ts UpdateUserResponse.
+export type UpdateProfileResponse = {
+  user: User;
+  message: string;
+  success: boolean;
+};

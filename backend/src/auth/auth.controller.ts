@@ -10,11 +10,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service.js';
-import { CurrentUser } from './decorators/current-user.decorator.js';
 import { LoginDto } from './dto/login-dto.js';
 import { RefreshTokenDto } from './dto/refresh-token.dto.js';
-import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import type { AuthenticatedUser } from './types/jwt-payload.type.js';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
+import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 
 @Controller('auth')
 export class AuthController {

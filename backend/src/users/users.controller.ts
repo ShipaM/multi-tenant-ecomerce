@@ -7,10 +7,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service.js';
-import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
 import type { AuthenticatedUser } from '../auth/types/jwt-payload.type.js';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
+import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 
 @Controller('users')
 export class UsersController {

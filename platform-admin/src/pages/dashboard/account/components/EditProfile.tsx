@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { useAppDispatch } from "@/hooks/use-store";
+import { useAppDispatch, useAppSelector } from "@/hooks/use-store";
 import { updateUser } from "@/store/auth/authSlice";
 import type { User } from "@/types";
 import { type FC, useState, type ChangeEvent, type SubmitEvent } from "react";
@@ -15,9 +15,11 @@ type EditProfileProps = {
 
 export const EditProfile: FC<EditProfileProps> = ({ user }) => {
   const dispatch = useAppDispatch();
+  const isUpdateUserLoading = useAppSelector(
+    (state) => state.auth.isUpdateUserLoading,
+  );
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<User>(user);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -27,7 +29,6 @@ export const EditProfile: FC<EditProfileProps> = ({ user }) => {
   const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
-    setIsSubmitting(true);
 
     try {
       await dispatch(
@@ -43,8 +44,6 @@ export const EditProfile: FC<EditProfileProps> = ({ user }) => {
       setError(
         typeof error === "string" ? error : "Failed to update the profile",
       );
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -77,7 +76,7 @@ export const EditProfile: FC<EditProfileProps> = ({ user }) => {
               id="fullName"
               value={data.fullName}
               type="text"
-              disabled={isSubmitting}
+              disabled={isUpdateUserLoading}
               placeholder="Enter full name"
               className="h-10"
               onChange={handleChange}
@@ -91,7 +90,7 @@ export const EditProfile: FC<EditProfileProps> = ({ user }) => {
               value={data.email}
               type="text"
               name="email"
-              disabled={isSubmitting}
+              disabled={isUpdateUserLoading}
               placeholder="Enter email"
               onChange={handleChange}
             />
@@ -101,7 +100,7 @@ export const EditProfile: FC<EditProfileProps> = ({ user }) => {
             <Input
               id="phone"
               value={data.phone}
-              disabled={isSubmitting}
+              disabled={isUpdateUserLoading}
               className="h-10"
               type="text"
               onChange={handleChange}
@@ -114,7 +113,7 @@ export const EditProfile: FC<EditProfileProps> = ({ user }) => {
             <Input
               id="profileImage"
               value={data.profileImage}
-              disabled={isSubmitting}
+              disabled={isUpdateUserLoading}
               className="h-10"
               type="text"
               placeholder="Please enter new photo url"
@@ -129,9 +128,9 @@ export const EditProfile: FC<EditProfileProps> = ({ user }) => {
             <Button
               className="black h-10"
               type="submit"
-              disabled={isSubmitting}
+              disabled={isUpdateUserLoading}
             >
-              {isSubmitting ? (
+              {isUpdateUserLoading ? (
                 <>
                   <Spinner className="size-4" />
                   Saving changes...

@@ -31,7 +31,12 @@ describe('AuthService', () => {
 
   const usersService = { findByEmail: vi.fn() };
   const prisma = {
-    userSession: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    userSession: {
+      create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+      findUnique: vi.fn(),
+    },
   };
   const jwtService = {
     signAsync: vi.fn(),

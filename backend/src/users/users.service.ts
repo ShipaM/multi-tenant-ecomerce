@@ -2,7 +2,7 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
-import { PublicUser } from './types/public-user.type.js';
+import { UpdateUserResponse } from './types/public-user.type.js';
 
 @Injectable()
 export class UsersService {
@@ -16,15 +16,20 @@ export class UsersService {
     });
   }
 
-  async update(userId: string, dto: UpdateUserDto): Promise<PublicUser> {
+  async update(
+    userId: string,
+    dto: UpdateUserDto,
+  ): Promise<UpdateUserResponse> {
     try {
-      return await this.prisma.user.update({
+      const user = await this.prisma.user.update({
         where: {
           id: userId,
         },
         data: { ...dto },
         omit: { passwordHash: true, twoFactorSecret: true },
       });
+
+      return { user, message: 'Updated successfully', success: true };
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

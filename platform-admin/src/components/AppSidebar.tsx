@@ -119,8 +119,7 @@ export const AppSidebar = () => {
   const location = useLocation();
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.auth.user);
-  const logoutLoading =
-    useAppSelector((state) => state.auth.status) === "loading";
+  const logoutLoading = useAppSelector((state) => state.auth.isLogoutLoading);
 
   const handleLogout = () => {
     dispatch(fetchLogout());

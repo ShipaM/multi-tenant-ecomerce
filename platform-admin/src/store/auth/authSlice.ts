@@ -8,6 +8,7 @@ import {
   type LoginResponse,
   type LogoutResponse,
   type UpdateProfilePayload,
+  type UpdateProfileResponse,
   type User,
 } from "@/types";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
@@ -28,9 +29,12 @@ const initialState: AuthState = {
   user: null,
   accessToken: storage.getAccessToken(),
   refreshToken: storage.getRefreshToken(),
-  userType: "PLATFORM_ADMIN",
-  status: "idle",
+  userType: storage.getUserType(),
   error: null,
+  isLoginLoading: false,
+  isMeLoading: false,
+  isLogoutLoading: false,
+  isUpdateUserLoading: false,
 };
 
 export const fetchLogin = createAsyncThunk<
@@ -46,6 +50,7 @@ export const fetchLogin = createAsyncThunk<
     }
 
     storage.setTokens(tokens.accessToken, tokens.refreshToken);
+    storage.setUserType(tokens.userType);
     return tokens;
   } catch (error) {
     storage.clearStoradge();
@@ -84,7 +89,7 @@ export const fetchLogout = createAsyncThunk<
 });
 
 export const updateUser = createAsyncThunk<
-  User,
+  UpdateProfileResponse,
   UpdateProfilePayload,
   { rejectValue: string }
 >(
@@ -114,17 +119,17 @@ export const authSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchLogin.pending, (state) => {
-        state.status = "loading";
+        state.isLoginLoading = true;
         state.error = null;
       })
       .addCase(fetchLogin.fulfilled, (state, action) => {
-        state.status = "succeeded";
+        state.isLoginLoading = false;
         state.accessToken = action.payload.accessToken;
         state.refreshToken = action.payload.refreshToken;
         state.userType = action.payload.userType;
       })
       .addCase(fetchLogin.rejected, (state, action) => {
-        state.status = "failed";
+        state.isLoginLoading = false;
         state.error = action.payload ?? "Could not Sign in";
         state.accessToken = null;
         state.refreshToken = null;
@@ -133,12 +138,12 @@ export const authSlice = createSlice({
 
     builder
       .addCase(fetchMe.pending, (state) => {
-        state.status = "loading";
+        state.isMeLoading = true;
         state.user = null;
         state.error = null;
       })
       .addCase(fetchMe.fulfilled, (state, action) => {
-        state.status = "succeeded";
+        state.isMeLoading = false;
         state.user = {
           ...action.payload,
           avatarName: buildAvatarName(
@@ -148,7 +153,7 @@ export const authSlice = createSlice({
         };
       })
       .addCase(fetchMe.rejected, (state, action) => {
-        state.status = "failed";
+        state.isMeLoading = false;
         state.error = action.payload ?? "Could not load the current user";
         state.user = null;
         state.accessToken = null;
@@ -158,11 +163,11 @@ export const authSlice = createSlice({
 
     builder
       .addCase(fetchLogout.pending, (state) => {
-        state.status = "loading";
+        state.isLogoutLoading = true;
         state.error = null;
       })
       .addCase(fetchLogout.fulfilled, (state) => {
-        state.status = "idle";
+        state.isLogoutLoading = false;
         state.user = null;
         state.accessToken = null;
         state.refreshToken = null;
@@ -171,7 +176,7 @@ export const authSlice = createSlice({
         storage.clearStoradge();
       })
       .addCase(fetchLogout.rejected, (state, action) => {
-        state.status = "idle";
+        state.isLogoutLoading = false;
         state.user = null;
         state.accessToken = null;
         state.refreshToken = null;
@@ -180,20 +185,21 @@ export const authSlice = createSlice({
         storage.clearStoradge();
       });
 
-    // updateUser intentionally never touches state.status/state.error: that
-    // pair also gates ProtectedRoute's "session is valid" check (status ===
-    // "failed" forces a redirect to /auth/login), and a profile-edit failure
-    // (e.g. a duplicate email) is not a session failure. EditProfile keeps
-    // its own local submitting/error state instead.
-    builder.addCase(updateUser.fulfilled, (state, action) => {
-      state.user = {
-        ...action.payload,
-        avatarName: buildAvatarName(
-          action.payload?.fullName,
-          action.payload?.email,
-        ),
-      };
-    });
+    builder
+      .addCase(updateUser.pending, (state) => {
+        state.isUpdateUserLoading = true;
+      })
+      .addCase(updateUser.fulfilled, (state, action) => {
+        state.isUpdateUserLoading = false;
+        const { user } = action.payload;
+        state.user = {
+          ...user,
+          avatarName: buildAvatarName(user?.fullName, user?.email),
+        };
+      })
+      .addCase(updateUser.rejected, (state) => {
+        state.isUpdateUserLoading = false;
+      });
   },
 });
 

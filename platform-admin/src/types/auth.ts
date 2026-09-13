@@ -1,4 +1,3 @@
-import type { AsyncStatus } from "@/types/async";
 import { isUserType, type User, type USER_TYPE } from "@/types/user";
 
 export type LoginPayload = {
@@ -20,8 +19,11 @@ export interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   userType: USER_TYPE | null;
-  status: AsyncStatus;
   error: string | null;
+  isLoginLoading: boolean;
+  isMeLoading: boolean;
+  isLogoutLoading: boolean;
+  isUpdateUserLoading: boolean;
 }
 
 export const isCompleteLoginResponse = (
