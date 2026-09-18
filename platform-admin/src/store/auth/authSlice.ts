@@ -3,15 +3,21 @@ import { getAxiosErrorMessage } from "@/lib/api.error";
 import { storage } from "@/lib/storage";
 import {
   isCompleteLoginResponse,
-  type AuthState,
+  isTwoFactorRequiredResponse,
+  type ChangePasswordPayload,
+  type GenerateOtpResponse,
   type LoginPayload,
   type LoginResponse,
   type LogoutResponse,
   type UpdateProfilePayload,
   type UpdateProfileResponse,
   type User,
+  type Verify2FaLoginOtpPayload,
+  type VerifyEnableDisableTwoFactorPayload,
+  type VerifyOtpResponse,
 } from "@/types";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import type { AuthState } from "./auth.types";
 
 const buildAvatarName = (fullName?: string | null, email?: string): string => {
   const words = (fullName ?? "").trim().split(/\s+/).filter(Boolean);
@@ -29,12 +35,19 @@ const initialState: AuthState = {
   user: null,
   accessToken: storage.getAccessToken(),
   refreshToken: storage.getRefreshToken(),
-  userType: storage.getUserType(),
+  userType: "PLATFORM_ADMIN",
   error: null,
   isLoginLoading: false,
   isMeLoading: false,
   isLogoutLoading: false,
   isUpdateUserLoading: false,
+  isChangePasswordLoading: false,
+  isTwoFactorGenerateOtpLoading: false,
+  isTwoFactorVerifyOtpLoading: false,
+
+  twoFactorToken: null,
+  twoFactorRequired: false,
+  isVerify2FaLoginOtpLoading: false,
 };
 
 export const fetchLogin = createAsyncThunk<
@@ -45,13 +58,17 @@ export const fetchLogin = createAsyncThunk<
   try {
     const tokens = await authApi.login(payload);
 
-    if (!isCompleteLoginResponse(tokens)) {
-      return rejectWithValue("Could not Sign in: incomplete response");
+    if (isCompleteLoginResponse(tokens)) {
+      storage.setTokens(tokens.accessToken, tokens.refreshToken);
+      storage.setUserType(tokens.userType);
+      return tokens;
     }
 
-    storage.setTokens(tokens.accessToken, tokens.refreshToken);
-    storage.setUserType(tokens.userType);
-    return tokens;
+    if (isTwoFactorRequiredResponse(tokens)) {
+      return tokens;
+    }
+
+    return rejectWithValue("Could not Sign in: incomplete response");
   } catch (error) {
     storage.clearStoradge();
     return rejectWithValue(getAxiosErrorMessage(error, "Could not Sign in"));
@@ -107,6 +124,86 @@ export const updateUser = createAsyncThunk<
   },
 );
 
+export const changePassword = createAsyncThunk<
+  UpdateProfileResponse,
+  ChangePasswordPayload,
+  { rejectValue: string }
+>(
+  "auth/changePassword",
+  async (payload: ChangePasswordPayload, { rejectWithValue }) => {
+    try {
+      const data = await authApi.changePassword(payload);
+
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        getAxiosErrorMessage(error, "Failed to update the current user"),
+      );
+    }
+  },
+);
+
+export const twoFactorGenerateOtp = createAsyncThunk<
+  GenerateOtpResponse,
+  void,
+  { rejectValue: string }
+>("auth/twoFactorGenerateOtp", async (_, { rejectWithValue }) => {
+  try {
+    const data = await authApi.twoFactorGenerateOtp();
+    return data;
+  } catch (error) {
+    return rejectWithValue(
+      getAxiosErrorMessage(error, "Failed to generate otp"),
+    );
+  }
+});
+
+export const verifyEnableDisableTwoFactor = createAsyncThunk<
+  VerifyOtpResponse,
+  VerifyEnableDisableTwoFactorPayload,
+  { rejectValue: string }
+>(
+  "auth/verifyEnableDisableTwoFactor",
+  async (payload: VerifyEnableDisableTwoFactorPayload, { rejectWithValue }) => {
+    try {
+      const data = await authApi.verifyEnableDisableTwoFactor(payload);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        getAxiosErrorMessage(error, "Failed to verify otp"),
+      );
+    }
+  },
+);
+
+export const verify2FaLoginOtp = createAsyncThunk<
+  LoginResponse,
+  Verify2FaLoginOtpPayload,
+  { rejectValue: string }
+>(
+  "auth/verify2FaLoginOtp",
+  async (payload: Verify2FaLoginOtpPayload, { rejectWithValue }) => {
+    try {
+      const tokens = await authApi.verify2FaLoginOtp(payload);
+
+      if (isCompleteLoginResponse(tokens)) {
+        storage.setTokens(tokens.accessToken, tokens.refreshToken);
+        storage.setUserType(tokens.userType);
+        return tokens;
+      }
+
+      if (isTwoFactorRequiredResponse(tokens)) {
+        return tokens;
+      }
+
+      return rejectWithValue("Could not Sign in: incomplete response");
+    } catch (error) {
+      storage.clearStoradge();
+      return rejectWithValue(getAxiosErrorMessage(error, "Could not Sign in"));
+    }
+  },
+);
+
 export const authSlice = createSlice({
   name: "auth",
   initialState,
@@ -124,16 +221,19 @@ export const authSlice = createSlice({
       })
       .addCase(fetchLogin.fulfilled, (state, action) => {
         state.isLoginLoading = false;
-        state.accessToken = action.payload.accessToken;
-        state.refreshToken = action.payload.refreshToken;
-        state.userType = action.payload.userType;
+        state.accessToken = action.payload.accessToken ?? null;
+        state.refreshToken = action.payload.refreshToken ?? null;
+        state.userType = "PLATFORM_ADMIN";
+
+        state.twoFactorRequired = action.payload.twoFactorRequired ?? false;
+        state.twoFactorToken = action.payload.twoFactorToken ?? null;
       })
       .addCase(fetchLogin.rejected, (state, action) => {
         state.isLoginLoading = false;
         state.error = action.payload ?? "Could not Sign in";
         state.accessToken = null;
         state.refreshToken = null;
-        state.userType = null;
+        state.userType = "PLATFORM_ADMIN";
       });
 
     builder
@@ -158,7 +258,7 @@ export const authSlice = createSlice({
         state.user = null;
         state.accessToken = null;
         state.refreshToken = null;
-        state.userType = null;
+        state.userType = "PLATFORM_ADMIN";
       });
 
     builder
@@ -171,7 +271,7 @@ export const authSlice = createSlice({
         state.user = null;
         state.accessToken = null;
         state.refreshToken = null;
-        state.userType = null;
+        state.userType = "PLATFORM_ADMIN";
         state.error = null;
         storage.clearStoradge();
       })
@@ -180,7 +280,7 @@ export const authSlice = createSlice({
         state.user = null;
         state.accessToken = null;
         state.refreshToken = null;
-        state.userType = null;
+        state.userType = "PLATFORM_ADMIN";
         state.error = action.payload ?? "Could not Sign out";
         storage.clearStoradge();
       });
@@ -199,6 +299,69 @@ export const authSlice = createSlice({
       })
       .addCase(updateUser.rejected, (state) => {
         state.isUpdateUserLoading = false;
+      });
+
+    builder
+      .addCase(changePassword.pending, (state) => {
+        state.isChangePasswordLoading = true;
+      })
+      .addCase(changePassword.fulfilled, (state, action) => {
+        state.isChangePasswordLoading = false;
+        const { user } = action.payload;
+        state.user = {
+          ...user,
+          avatarName: buildAvatarName(user?.fullName, user?.email),
+        };
+      })
+      .addCase(changePassword.rejected, (state) => {
+        state.isChangePasswordLoading = false;
+      });
+
+    builder
+      .addCase(twoFactorGenerateOtp.pending, (state) => {
+        state.isTwoFactorGenerateOtpLoading = true;
+      })
+      .addCase(twoFactorGenerateOtp.fulfilled, (state) => {
+        state.isTwoFactorGenerateOtpLoading = false;
+      })
+      .addCase(twoFactorGenerateOtp.rejected, (state) => {
+        state.isTwoFactorGenerateOtpLoading = false;
+      });
+
+    builder
+      .addCase(verifyEnableDisableTwoFactor.pending, (state) => {
+        state.isTwoFactorVerifyOtpLoading = true;
+      })
+      .addCase(verifyEnableDisableTwoFactor.fulfilled, (state, action) => {
+        state.isTwoFactorVerifyOtpLoading = false;
+        if (state.user) {
+          state.user.twoFactorEnabled = action.payload.data.twoFactorEnabled;
+        }
+      })
+      .addCase(verifyEnableDisableTwoFactor.rejected, (state) => {
+        state.isTwoFactorVerifyOtpLoading = false;
+      });
+
+    builder
+      .addCase(verify2FaLoginOtp.pending, (state) => {
+        state.isVerify2FaLoginOtpLoading = true;
+        state.error = null;
+      })
+      .addCase(verify2FaLoginOtp.fulfilled, (state, action) => {
+        state.isVerify2FaLoginOtpLoading = false;
+        state.accessToken = action.payload.accessToken ?? null;
+        state.refreshToken = action.payload.refreshToken ?? null;
+        state.userType = "PLATFORM_ADMIN";
+
+        state.twoFactorRequired = action.payload.twoFactorRequired ?? false;
+        state.twoFactorToken = action.payload.twoFactorToken ?? null;
+      })
+      .addCase(verify2FaLoginOtp.rejected, (state, action) => {
+        state.isVerify2FaLoginOtpLoading = false;
+        state.error = action.payload ?? "Could not Sign in";
+        state.accessToken = null;
+        state.refreshToken = null;
+        state.userType = "PLATFORM_ADMIN";
       });
   },
 });

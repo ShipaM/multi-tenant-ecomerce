@@ -1,4 +1,4 @@
-import { isUserType, type USER_TYPE } from "@/types/user";
+import { isUserType, type UserType } from "@/types";
 
 export const LOCAL_STORAGE_KEYS = {
   ACCESS_TOKEN: "ACCESS_TOKEN",
@@ -9,8 +9,6 @@ export const LOCAL_STORAGE_KEYS = {
 export type LocalStorageKey =
   (typeof LOCAL_STORAGE_KEYS)[keyof typeof LOCAL_STORAGE_KEYS];
 
-// Some browsers (private mode, disabled site data) throw on access instead of
-// just being unavailable, so every call is guarded rather than trusted.
 function safeGetItem(key: string): string | null {
   try {
     return localStorage.getItem(key);
@@ -52,7 +50,7 @@ export const storage = {
     return safeGetItem(LOCAL_STORAGE_KEYS.REFRESH_TOKEN);
   },
 
-  getUserType(): USER_TYPE | null {
+  getUserType(): UserType | null {
     const value = safeGetItem(LOCAL_STORAGE_KEYS.USER_TYPE);
     return isUserType(value) ? value : null;
   },
@@ -62,7 +60,7 @@ export const storage = {
     safeSetItem(LOCAL_STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
   },
 
-  setUserType(userType: USER_TYPE) {
+  setUserType(userType: UserType) {
     safeSetItem(LOCAL_STORAGE_KEYS.USER_TYPE, userType);
   },
 

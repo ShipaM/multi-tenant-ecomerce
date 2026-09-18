@@ -59,6 +59,22 @@ export class EnvironmentVariables {
   @IsOptional()
   @Matches(EXPIRES_IN_PATTERN)
   JWT_REFRESH_EXPIRES_IN: ExpiresIn = '30d';
+
+  @IsString()
+  @MinLength(MIN_SECRET_LENGTH)
+  JWT_2FA_SECRET: string;
+
+  @IsOptional()
+  @Matches(EXPIRES_IN_PATTERN)
+  JWT_2FA_EXPIRES_IN: ExpiresIn = '15m';
+
+  @IsString()
+  @IsNotEmpty()
+  RESEND_API_KEY: string;
+
+  @IsString()
+  @IsNotEmpty()
+  RESEND_FROM_EMAIL: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

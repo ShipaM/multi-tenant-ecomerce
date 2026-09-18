@@ -6,7 +6,8 @@ import { Navigate, Outlet, useLocation } from "react-router";
 export const ProtectedRoute = () => {
   const dispatch = useAppDispatch();
   const location = useLocation();
-  const { accessToken, user } = useAppSelector((state) => state.auth);
+  const accessToken = useAppSelector((state) => state.auth.accessToken);
+  const user = useAppSelector((state) => state.auth.user);
 
   const hasToken = Boolean(accessToken);
 

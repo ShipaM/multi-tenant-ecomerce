@@ -1,4 +1,4 @@
-import { PageTitle } from "@/components/PageTitle";
+import { PageTitle, SubmitButton } from "@/components";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,7 +7,7 @@ import { useAppDispatch, useAppSelector } from "@/hooks/use-store";
 import { updateUser } from "@/store/auth/authSlice";
 import type { User } from "@/types";
 import { type FC, useState, type ChangeEvent, type SubmitEvent } from "react";
-import { Spinner } from "@/components/ui/spinner";
+import { toast } from "sonner";
 
 type EditProfileProps = {
   user: User;
@@ -18,9 +18,15 @@ export const EditProfile: FC<EditProfileProps> = ({ user }) => {
   const isUpdateUserLoading = useAppSelector(
     (state) => state.auth.isUpdateUserLoading,
   );
-  const [open, setOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [data, setData] = useState<User>(user);
   const [error, setError] = useState<string | null>(null);
+
+  const isDirty =
+    data.fullName !== user.fullName ||
+    data.email !== user.email ||
+    data.phone !== user.phone ||
+    data.profileImage !== user.profileImage;
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setData({ ...data, [e.target.id]: e.target.value });
@@ -31,7 +37,7 @@ export const EditProfile: FC<EditProfileProps> = ({ user }) => {
     setError(null);
 
     try {
-      await dispatch(
+      const response = await dispatch(
         updateUser({
           fullName: data.fullName,
           email: data.email,
@@ -39,19 +45,21 @@ export const EditProfile: FC<EditProfileProps> = ({ user }) => {
           profileImage: data.profileImage,
         }),
       ).unwrap();
-      setOpen(false);
-    } catch (error) {
-      setError(
-        typeof error === "string" ? error : "Failed to update the profile",
-      );
+      toast.success(response.message);
+      setIsOpen(false);
+    } catch (err) {
+      const message =
+        typeof err === "string" ? err : "Failed to update the profile";
+      setError(message);
+      toast.error(message);
     }
   };
 
   return (
     <Dialog
-      open={open}
+      open={isOpen}
       onOpenChange={(nextOpen) => {
-        setOpen(nextOpen);
+        setIsOpen(nextOpen);
         if (nextOpen) {
           setData(user);
           setError(null);
@@ -124,21 +132,19 @@ export const EditProfile: FC<EditProfileProps> = ({ user }) => {
           {error && (
             <p className="col-span-2 text-sm text-destructive">{error}</p>
           )}
-          <div className="col-span-2 mt-4 flex justify-center">
-            <Button
-              className="black h-10"
-              type="submit"
-              disabled={isUpdateUserLoading}
+          <div className="col-span-2 mt-4 flex flex-col items-center gap-2">
+            <SubmitButton
+              loading={isUpdateUserLoading}
+              loadingText="Saving changes..."
+              disabled={!isDirty}
             >
-              {isUpdateUserLoading ? (
-                <>
-                  <Spinner className="size-4" />
-                  Saving changes...
-                </>
-              ) : (
-                "Save changes"
-              )}
-            </Button>
+              Save changes
+            </SubmitButton>
+            {!isUpdateUserLoading && !isDirty && (
+              <p className="text-sm text-muted-foreground">
+                No changes to save
+              </p>
+            )}
           </div>
         </form>
       </DialogContent>

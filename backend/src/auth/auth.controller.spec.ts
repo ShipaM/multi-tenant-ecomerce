@@ -26,8 +26,6 @@ describe('AuthController', () => {
       controllers: [AuthController],
       providers: [{ provide: AuthService, useValue: authService }],
     })
-      // The guard is exercised through JwtStrategy elsewhere; stubbing it here
-      // keeps these tests about the controller's own wiring.
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
       .compile();

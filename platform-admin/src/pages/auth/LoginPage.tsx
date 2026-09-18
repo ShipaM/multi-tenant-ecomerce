@@ -1,11 +1,10 @@
-import { PrefetchLink } from "@/components/PrefetchLink";
-import { Button } from "@/components/ui/button";
+import { PasswordInput, PrefetchLink, SubmitButton } from "@/components";
 import { FieldGroup, Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Spinner } from "@/components/ui/spinner";
 import { useState, type SubmitEvent } from "react";
 import { useAppDispatch, useAppSelector } from "@/hooks/use-store";
 import { fetchLogin } from "@/store/auth/authSlice";
+import { isCompleteLoginResponse, isTwoFactorRequiredResponse } from "@/types";
 import { isSafeRedirectPath } from "@/lib/redirect";
 import { useNavigate, useSearchParams } from "react-router";
 
@@ -31,8 +30,21 @@ const LoginPage = () => {
     setError(null);
 
     try {
-      await dispatch(fetchLogin({ email, password })).unwrap();
-      navigate(redirectTo, { replace: true });
+      const response = await dispatch(
+        fetchLogin({ email, password }),
+      ).unwrap();
+
+      if (isCompleteLoginResponse(response)) {
+        navigate(redirectTo, { replace: true });
+      } else if (isTwoFactorRequiredResponse(response)) {
+        navigate("/auth/2fa", {
+          state: {
+            twoFactorToken: response.twoFactorToken,
+            email: email,
+            redirectTo,
+          },
+        });
+      }
     } catch (error) {
       setError(typeof error === "string" ? error : "Failed to login");
     }
@@ -70,9 +82,8 @@ const LoginPage = () => {
                 Forgot Password?
               </PrefetchLink>
             </div>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               className="h-11"
               placeholder="••••••••"
               autoComplete="current-password"
@@ -85,20 +96,13 @@ const LoginPage = () => {
 
           {error && <p className="mt-1 text-sm text-destructive">{error}</p>}
 
-          <Button
-            type="submit"
+          <SubmitButton
             className="mt-2 h-11 w-full"
-            disabled={isLoginLoading}
+            loading={isLoginLoading}
+            loadingText="Signing in..."
           >
-            {isLoginLoading ? (
-              <>
-                <Spinner className="size-4" />
-                Signing in...
-              </>
-            ) : (
-              "Sign in"
-            )}
-          </Button>
+            Sign in
+          </SubmitButton>
         </FieldGroup>
       </form>
     </div>

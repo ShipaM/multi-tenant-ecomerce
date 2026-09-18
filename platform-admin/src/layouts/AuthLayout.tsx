@@ -2,19 +2,19 @@ import { Suspense, useEffect } from "react";
 import { Outlet, useNavigate } from "react-router";
 import PlatformLogo from "@/assets/platform-logo.png";
 
-import { RouteFallback } from "@/components/route-fallback";
+import { RouteFallback } from "@/components";
 import { useAppSelector } from "@/hooks/use-store";
 
 const AuthLayout = () => {
-  const user = useAppSelector((state) => state?.auth);
+  const accessToken = useAppSelector((state) => state.auth.accessToken);
 
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user.accessToken) {
+    if (accessToken) {
       navigate("/dashboard");
     }
-  }, [user.accessToken, navigate]);
+  }, [accessToken, navigate]);
 
   return (
     <div className="flex min-h-svh">

@@ -20,6 +20,11 @@ enum UserStatus {
   INACTIVE
 }
 
+enum TwoFactorOtpPurpose {
+  ENABLE_TOGGLE
+  LOGIN
+}
+
 model User {
   id               String     @id @default(cuid())
   email            String     @unique @db.Citext
@@ -37,6 +42,7 @@ model User {
 
   passwordResetOtps PasswordResetOtp[]
   sessions          UserSession[]
+  twoFactorOtps     TwoFactorOtp[]
 
   @@map("users")
 }
@@ -51,6 +57,7 @@ model PasswordResetOtp {
   createdAt  DateTime  @default(now()) @map("created_at")
 
   @@index([userId])
+  @@index([expiresAt])
   @@map("password_reset_otps")
 }
 
@@ -67,5 +74,25 @@ model UserSession {
   revokedAt        DateTime? @map("revoked_at")
 
   @@index([userId])
+  @@index([expiresAt])
   @@map("user_sessions")
+}
+
+model TwoFactorOtp {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  purpose   TwoFactorOtpPurpose @default(ENABLE_TOGGLE) @map("purpose")
+  otpHash   String              @map("otp_hash")
+  expiresAt DateTime            @map("expires_at")
+
+  attempts   Int       @default(0)
+  verifiedAt DateTime? @map("verified_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("two_factor_otps")
 }

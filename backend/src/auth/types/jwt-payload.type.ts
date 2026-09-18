@@ -18,3 +18,7 @@ export interface AuthenticatedUser {
   userType: UserType;
   sessionId: string;
 }
+
+export type TwoFactorTokenPayload = {
+  userId: string;
+};

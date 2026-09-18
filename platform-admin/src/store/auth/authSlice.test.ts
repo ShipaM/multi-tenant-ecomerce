@@ -48,17 +48,17 @@ describe("auth initial state", () => {
     expect(await loadInitialState()).toMatchObject({
       accessToken: null,
       refreshToken: null,
-      userType: null,
+      userType: "PLATFORM_ADMIN",
     });
   });
 
-  it("ignores a user type that is not one of the known roles", async () => {
+  it("defaults to PLATFORM_ADMIN regardless of the stored user type", async () => {
     localStorage.setItem(LOCAL_STORAGE_KEYS.ACCESS_TOKEN, "access");
     localStorage.setItem(LOCAL_STORAGE_KEYS.USER_TYPE, "SUPER_ADMIN");
 
     expect(await loadInitialState()).toMatchObject({
       accessToken: "access",
-      userType: null,
+      userType: "PLATFORM_ADMIN",
     });
   });
 
@@ -80,7 +80,7 @@ describe("auth initial state", () => {
 
     expect(await loadInitialState()).toMatchObject({
       accessToken: null,
-      userType: null,
+      userType: "PLATFORM_ADMIN",
     });
   });
 });

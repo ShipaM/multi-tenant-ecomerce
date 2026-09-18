@@ -1,5 +1,4 @@
-import { PasswordInput } from "@/components/PasswordInput";
-import { PrefetchLink } from "@/components/PrefetchLink";
+import { PasswordInput, PrefetchLink } from "@/components";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -8,18 +7,16 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
+import type { AuthNavigationState } from "@/types";
 import { CheckCircle2 } from "lucide-react";
 import { useState, type SubmitEvent, type ChangeEvent } from "react";
 import { useLocation } from "react-router";
 
 const ResetPassword = () => {
   const location = useLocation();
-  const state = location.state as {
-    email?: string;
-    resetToken?: string;
-  } | null;
+  const navState = location.state as AuthNavigationState | null;
 
-  const email = state?.email;
+  const email = navState?.email;
 
   const [password, setPassword] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");

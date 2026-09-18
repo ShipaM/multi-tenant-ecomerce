@@ -1,4 +1,4 @@
-import { PrefetchLink } from "@/components/PrefetchLink";
+import { PrefetchLink } from "@/components";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";

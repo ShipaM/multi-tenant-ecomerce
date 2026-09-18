@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 
-import { AppSidebar } from "@/components/AppSidebar";
-import { RouteFallback } from "@/components/route-fallback";
+import { AppSidebar, PrefetchLink, RouteFallback, UserAvatar } from "@/components";
 import { Separator } from "@/components/ui/separator";
 import {
   SidebarInset,
@@ -11,14 +10,12 @@ import {
 import { Outlet } from "react-router";
 import { Input } from "@/components/ui/input";
 import { SearchIcon, User2Icon } from "lucide-react";
-import { UserAvatar } from "@/components/UserAvatar";
 import { useAppSelector } from "@/hooks/use-store";
 import {
   PopoverTrigger,
   Popover,
   PopoverContent,
 } from "@/components/ui/popover";
-import { PrefetchLink } from "@/components/PrefetchLink";
 
 const DashboardLayout = () => {
   const user = useAppSelector((state) => state.auth.user);
@@ -60,10 +57,12 @@ const DashboardLayout = () => {
           </div>
         </header>
 
-        <div className="flex flex-1 flex-col bg-accent/50 p-4 lg:p-6 min-h-[calc(100vh-64px)] container mx-auto">
-          <Suspense fallback={<RouteFallback />}>
-            <Outlet />
-          </Suspense>
+        <div className="flex flex-1 flex-col bg-accent/50 min-h-[calc(100vh-64px)]">
+          <div className="mx-auto p-4 lg:p-6 w-full">
+            <Suspense fallback={<RouteFallback />}>
+              <Outlet />
+            </Suspense>
+          </div>
         </div>
       </SidebarInset>
     </SidebarProvider>

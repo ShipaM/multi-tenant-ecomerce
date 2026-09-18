@@ -21,7 +21,7 @@ export const PageTitle: FC<PageTitleProps> = ({
       {description && (
         <p
           className={cn(
-            "mt-0.5text-sm text-muted-foreground",
+            "mt-0.5 text-sm text-muted-foreground",
             classNameDescription,
           )}
         >

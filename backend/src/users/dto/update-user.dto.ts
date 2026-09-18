@@ -1,7 +1,5 @@
 import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
 
-// Only fields a user is allowed to edit on their own profile.
-// status/userType/password are intentionally never accepted here.
 export class UpdateUserDto {
   @IsOptional()
   @IsString()

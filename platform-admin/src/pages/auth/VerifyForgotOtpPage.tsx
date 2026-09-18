@@ -1,4 +1,4 @@
-import { PrefetchLink } from "@/components/PrefetchLink";
+import { PrefetchLink } from "@/components";
 import { Button } from "@/components/ui/button";
 import {
   InputOTP,
@@ -6,13 +6,14 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Spinner } from "@/components/ui/spinner";
+import type { AuthNavigationState } from "@/types";
 import { ArrowLeft } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 const VerifyForgotOtpPage = () => {
   const location = useLocation();
-  const email = (location.state as { email?: string })?.email;
+  const email = (location.state as AuthNavigationState | null)?.email;
 
   const [otp, setOtp] = useState("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);

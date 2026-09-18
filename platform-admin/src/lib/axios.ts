@@ -1,5 +1,5 @@
-import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
-import type { TokenPair } from "@/types";
+import axios, { AxiosError } from "axios";
+import type { RetriableConfig, TokenPair } from "@/types";
 import { storage } from "./storage";
 
 const baseURL =
@@ -30,10 +30,6 @@ Axios.interceptors.request.use((config) => {
   }
   return config;
 });
-
-interface RetriableConfig extends InternalAxiosRequestConfig {
-  _retry?: boolean;
-}
 
 async function requestTokenPair(): Promise<string> {
   const refreshToken = storage.getRefreshToken();

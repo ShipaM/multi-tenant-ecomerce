@@ -1,8 +1,6 @@
 import { Suspense } from "react";
 
-import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
-import { RouteFallback } from "@/components/route-fallback";
-import { ScrollToTop } from "@/components/ScrollToTop";
+import { RouteErrorBoundary, RouteFallback, ScrollToTop } from "@/components";
 import AppRoutes from "@/routes";
 
 function App() {

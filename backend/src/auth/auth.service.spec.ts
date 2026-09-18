@@ -1,10 +1,20 @@
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
-import { UserStatus, UserType } from '../generated/prisma/enums.js';
+import bcrypt from 'bcryptjs';
+import {
+  TwoFactorOtpPurpose,
+  UserStatus,
+  UserType,
+} from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
+import { EmailService } from '../email/email.service.js';
 import { AuthService } from './auth.service.js';
 
 const SHARED_PREFIX = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${'q'.repeat(140)}.`;
@@ -16,15 +26,22 @@ const env: Record<string, string> = {
   JWT_REFRESH_SECRET: 'r'.repeat(32),
   JWT_ACCESS_EXPIRES_IN: '15m',
   JWT_REFRESH_EXPIRES_IN: '30d',
+  JWT_2FA_SECRET: 't'.repeat(32),
+  JWT_2FA_EXPIRES_IN: '15m',
 };
 
 const user = {
   id: 'u1',
   email: 'a@b.com',
+  fullName: 'A B',
   userType: UserType.PLATFORM_ADMIN,
   status: UserStatus.ACTIVE,
   passwordHash: 'unused-here',
+  twoFactorEnabled: false,
 };
+
+const CORRECT_OTP = '111111';
+const OTP_HASH = bcrypt.hashSync(CORRECT_OTP, 10);
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -37,12 +54,23 @@ describe('AuthService', () => {
       updateMany: vi.fn(),
       findUnique: vi.fn(),
     },
+    user: {
+      findUnique: vi.fn(),
+      update: vi.fn(),
+    },
+    twoFactorOtp: {
+      create: vi.fn(),
+      findFirst: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
   };
   const jwtService = {
     signAsync: vi.fn(),
     verifyAsync: vi.fn(),
     decode: vi.fn(),
   };
+  const emailService = { sendOtp2FAuser: vi.fn() };
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -56,6 +84,7 @@ describe('AuthService', () => {
         { provide: UsersService, useValue: usersService },
         { provide: PrismaService, useValue: prisma },
         { provide: JwtService, useValue: jwtService },
+        { provide: EmailService, useValue: emailService },
         {
           provide: ConfigService,
           useValue: { get: vi.fn(), getOrThrow: (key: string) => env[key] },
@@ -178,6 +207,126 @@ describe('AuthService', () => {
     expect(prisma.userSession.updateMany).toHaveBeenCalledWith({
       where: { id: 's1', revokedAt: null },
       data: { revokedAt: expect.any(Date) },
+    });
+  });
+
+  describe('two-factor OTP flows', () => {
+    beforeEach(() => {
+      prisma.user.findUnique.mockResolvedValue(user);
+      prisma.user.update.mockResolvedValue({ ...user, twoFactorEnabled: true });
+      prisma.twoFactorOtp.updateMany.mockResolvedValue({ count: 0 });
+      prisma.twoFactorOtp.create.mockResolvedValue({});
+      prisma.twoFactorOtp.update.mockResolvedValue({});
+    });
+
+    it('invalidates prior live OTPs of the same purpose before issuing a new one', async () => {
+      await service.twoFactorEnable('u1', TwoFactorOtpPurpose.ENABLE_TOGGLE);
+
+      expect(prisma.twoFactorOtp.updateMany).toHaveBeenCalledWith({
+        where: {
+          userId: 'u1',
+          purpose: TwoFactorOtpPurpose.ENABLE_TOGGLE,
+          verifiedAt: null,
+          expiresAt: { gt: expect.any(Date) },
+        },
+        data: { expiresAt: expect.any(Date) },
+      });
+      expect(prisma.twoFactorOtp.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userId: 'u1',
+          purpose: TwoFactorOtpPurpose.ENABLE_TOGGLE,
+        }),
+      });
+      expect(emailService.sendOtp2FAuser).toHaveBeenCalled();
+    });
+
+    it('toggles 2FA when the OTP was issued for the enable/disable flow', async () => {
+      prisma.twoFactorOtp.findFirst.mockResolvedValue({
+        id: 'otp1',
+        otpHash: OTP_HASH,
+        attempts: 0,
+        purpose: TwoFactorOtpPurpose.ENABLE_TOGGLE,
+      });
+
+      const result = await service.twoFactorVerifyEnable('u1', CORRECT_OTP);
+
+      expect(prisma.twoFactorOtp.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            userId: 'u1',
+            purpose: TwoFactorOtpPurpose.ENABLE_TOGGLE,
+          }),
+        }),
+      );
+      expect(result.data.twoFactorEnabled).toBe(true);
+    });
+
+    it('refuses to enable/disable 2FA with a code issued for a login challenge', async () => {
+      // The OTP-purpose scoping means a LOGIN otp simply never matches a
+      // ENABLE_TOGGLE lookup, so this now behaves like "no such otp".
+      prisma.twoFactorOtp.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.twoFactorVerifyEnable('u1', CORRECT_OTP),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('locks out further attempts once the limit is reached', async () => {
+      prisma.twoFactorOtp.findFirst.mockResolvedValue({
+        id: 'otp1',
+        otpHash: OTP_HASH,
+        attempts: 5,
+        purpose: TwoFactorOtpPurpose.ENABLE_TOGGLE,
+      });
+
+      await expect(
+        service.twoFactorVerifyEnable('u1', CORRECT_OTP),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('issues a token pair when the login OTP is correct', async () => {
+      jwtService.verifyAsync.mockResolvedValue({ userId: 'u1' });
+      prisma.twoFactorOtp.findFirst.mockResolvedValue({
+        id: 'otp1',
+        otpHash: OTP_HASH,
+        attempts: 0,
+        purpose: TwoFactorOtpPurpose.LOGIN,
+      });
+      jwtService.signAsync.mockResolvedValue(TOKEN_A);
+
+      const result = await service.twoFactorVerifyLoginOtp(
+        'a-valid-2fa-token',
+        CORRECT_OTP,
+      );
+
+      expect(result).toEqual({
+        accessToken: TOKEN_A,
+        refreshToken: TOKEN_A,
+        userType: UserType.PLATFORM_ADMIN,
+      });
+    });
+
+    it('rejects an expired or tampered 2FA session token as a clean 400 instead of crashing', async () => {
+      jwtService.verifyAsync.mockRejectedValue(new Error('jwt expired'));
+
+      await expect(
+        service.twoFactorVerifyLoginOtp('an-expired-token', CORRECT_OTP),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('refuses to sign in a suspended account even with a correct login OTP', async () => {
+      jwtService.verifyAsync.mockResolvedValue({ userId: 'u1' });
+      prisma.user.findUnique.mockResolvedValue({
+        ...user,
+        status: UserStatus.SUSPENDED,
+      });
+
+      await expect(
+        service.twoFactorVerifyLoginOtp('a-valid-2fa-token', CORRECT_OTP),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.twoFactorOtp.findFirst).not.toHaveBeenCalled();
     });
   });
 });

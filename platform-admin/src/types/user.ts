@@ -1,3 +1,5 @@
+import type { Role } from "./role";
+
 export const USER_TYPES = [
   "CUSTOMER",
   "SELLER",
@@ -5,15 +7,15 @@ export const USER_TYPES = [
   "DELIVERY_AGENT",
 ] as const;
 
-export type USER_TYPE = (typeof USER_TYPES)[number];
+export type UserType = (typeof USER_TYPES)[number];
 
-export const isUserType = (value: unknown): value is USER_TYPE =>
-  typeof value === "string" && USER_TYPES.includes(value as USER_TYPE);
+export const isUserType = (value: unknown): value is UserType =>
+  typeof value === "string" && USER_TYPES.includes(value as UserType);
 
 export interface User {
   email: string;
   fullName: string;
-  userType: USER_TYPE;
+  userType: UserType;
   profileImage?: string;
   id: string;
   phone: string;
@@ -21,6 +23,7 @@ export interface User {
   twoFactorEnabled?: boolean;
   createdAt: Date;
   updatedAt: Date;
+  role?: Role;
   // Initials derived on the client from fullName/email for the avatar fallback.
   avatarName?: string;
 }
@@ -32,6 +35,12 @@ export type UpdateProfilePayload = {
   email: string;
   phone: string;
   profileImage?: string;
+};
+
+// Mirrors backend/src/users/dto/change-password.dto.ts.
+export type ChangePasswordPayload = {
+  currentPassword: string;
+  password: string;
 };
 
 // Mirrors backend/src/users/types/public-user.type.ts UpdateUserResponse.

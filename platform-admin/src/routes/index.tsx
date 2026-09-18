@@ -5,12 +5,13 @@ import AuthLayout from "@/layouts/AuthLayout";
 import { RootRedirect } from "@/routes/root-redirect";
 import { routeModules } from "@/routes/route-modules";
 import DashboardLayout from "@/layouts/DashboardLayout";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ProtectedRoute } from "@/components";
 
 const LoginPage = lazy(routeModules.login);
 const NotFoundPage = lazy(routeModules.notFound);
 const ForgotPasswordPage = lazy(routeModules.forgotPassword);
 const VerifyOtpPage = lazy(routeModules.verifyOtp);
+const Verify2FaOtpPage = lazy(routeModules.verify2Fa);
 const ResetPasswordPage = lazy(routeModules.resetPassword);
 const DashboardPage = lazy(routeModules.dashboard);
 const SellersPage = lazy(routeModules.sellers);
@@ -34,6 +35,7 @@ export const AppRoutes = () => {
       <Route path="auth" element={<AuthLayout />}>
         <Route index element={<Navigate to="login" replace />} />
         <Route path="login" element={<LoginPage />} />
+        <Route path="2fa" element={<Verify2FaOtpPage />} />
         <Route path="forgot-password" element={<ForgotPasswordPage />} />
         <Route path="forgot-password/otp" element={<VerifyOtpPage />} />
         <Route path="reset-password" element={<ResetPasswordPage />} />

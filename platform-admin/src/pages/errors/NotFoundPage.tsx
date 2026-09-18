@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { PrefetchLink } from "@/components/PrefetchLink";
+import { PrefetchLink } from "@/components";
 
 const NotFoundPage = () => {
   return (
