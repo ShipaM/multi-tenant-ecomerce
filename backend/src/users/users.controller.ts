@@ -20,7 +20,7 @@ export class UsersController {
   @Put('me')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  update(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateUserDto) {
+  update(@CurrentUser() user: AuthenticatedUser,@Body() dto: UpdateUserDto) {
     return this.usersService.update(user.userId, dto);
   }
 

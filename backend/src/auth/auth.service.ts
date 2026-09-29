@@ -32,7 +32,6 @@ import { EmailService } from '../email/email.service.js';
 import { TwoFactorVerifyLoginOtpDto } from './dto/two-factor.dto.js';
 
 const REFRESH_TOKEN_HASH_LABEL = 'refresh-token:';
-
 // Prevents email enumeration by keeping bcrypt response time consistent.
 const ABSENT_USER_PASSWORD_HASH =
   '$2b$10$GX4mLMIX82K.eEI3w8woCO8T3jagNaeEqpN24ykRftkNU9Prbtj4S';
@@ -96,7 +95,9 @@ export class AuthService {
       data: {
         id: sessionId,
         userId: user.id,
-        deviceLabel: context.deviceLabel,
+        device: context.device,
+        os: context.os,
+        browser: context.browser,
         ipAddress: context.ipAddress,
 
         // The refresh token itself is never stored, only its hash — see
@@ -155,7 +156,9 @@ export class AuthService {
         expiresAt: this.refreshTokenExpiresAt(tokens.refreshToken),
         lastActiveAt: new Date(),
         ipAddress: context.ipAddress ?? session.ipAddress,
-        deviceLabel: context.deviceLabel ?? session.deviceLabel,
+        deviceLabel: context.device ?? session.deviceLabel,
+        os: context.os,
+        browser: context.browser,
       },
     });
 
@@ -164,7 +167,16 @@ export class AuthService {
 
   // Revokes the session; JwtStrategy checks revokedAt on every request, so the
   // existing access token stops working immediately, not just after it expires.
-  async logout(sessionId: string): Promise<void> {
+  async logout(userId: string, sessionId: string): Promise<void> {
+    const session = await this.prisma.userSession.findUnique({
+      where: { id: sessionId },
+      include: { user: true },
+    });
+
+    if (!session || session.userId !== userId) {
+      throw new BadRequestException('Session not found');
+    }
+
     await this.prisma.userSession.updateMany({
       where: { id: sessionId, revokedAt: null },
       data: { revokedAt: new Date() },
@@ -269,7 +281,6 @@ export class AuthService {
     }
 
     const generateOtp = randomInt(100000, 1000000).toString();
-    console.log('[DOCGEN_OTP]', generateOtp); // TEMP: removed after doc screenshots are captured
     const otpHash = await bcrypt.hash(generateOtp, 10);
 
     const expiredAt = new Date(Date.now() + 5 * 60 * 1000);
@@ -448,5 +459,149 @@ export class AuthService {
       ...token,
       userType: user.userType,
     };
+  }
+
+  async listSessions(userId: string) {
+    return this.prisma.userSession.findMany({
+      where: { userId, revokedAt: null },
+      orderBy: { lastActiveAt: 'desc' },
+    });
+  }
+
+  async revokeSession(userId: string, sessionId: string): Promise<void> {
+    const session = await this.prisma.userSession.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session || session.userId !== userId) {
+      throw new BadRequestException('Session not found');
+    }
+
+    await this.prisma.userSession.update({
+      where: { id: sessionId },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  async revokeOtherSessions(
+    userId: string,
+    currentSessionId: string,
+  ): Promise<void> {
+    await this.prisma.userSession.updateMany({
+      where: { userId: userId, revokedAt: null, NOT: { id: currentSessionId } },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  async forgotPassword(email: string) {
+    if (!email) {
+      throw new BadRequestException('Email is required');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    let createdAt = new Date();
+
+    if (user) {
+      const generateotp = randomInt(100000, 1000000).toString();
+      const otpHash = await bcrypt.hash(generateotp, 10);
+      const expiredAt = new Date(Date.now() + 5 * 60 * 1000);
+
+      const otp = await this.prisma.passwordResetOtp.create({
+        data: {
+          userId: user.id,
+          codeHash: otpHash,
+          expiresAt: expiredAt,
+        },
+      });
+      createdAt = otp.createdAt;
+
+      await this.emailService.sendOtpForgotPassword(
+        user.fullName,
+        user.email,
+        generateotp,
+        '5 Min',
+      );
+    }
+
+    return {
+      success: true,
+      message: 'Otp send to your email successfully',
+      data: { createdAt },
+    };
+  }
+
+  async forgotPasswordOtpVerification(email: string, otp: string) {
+    if (!email) {
+      throw new BadRequestException('Email is required');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      throw new BadRequestException('Otp does not match');
+    }
+
+    const passwordResetOtp = await this.prisma.passwordResetOtp.findFirst({
+      where: { userId: user.id, consumedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!passwordResetOtp) {
+      throw new BadRequestException('Otp expired or invalid');
+    }
+
+    if (passwordResetOtp.attempts >= 5) {
+      throw new BadRequestException('Too many otp attempts');
+    }
+
+    const decodeHashOtp = await bcrypt.compare(otp, passwordResetOtp.codeHash);
+
+    if (!decodeHashOtp) {
+      await this.prisma.passwordResetOtp.update({
+        where: { id: passwordResetOtp.id },
+        data: { attempts: { increment: 1 } },
+      });
+      throw new BadRequestException('Otp does not match');
+    }
+
+    await this.prisma.passwordResetOtp.update({
+      where: { id: passwordResetOtp.id },
+      data: { consumedAt: new Date() },
+    });
+
+    const resetTokenPayload = { userId: user.id };
+
+    const resetToken = await this.jwtService.signAsync(resetTokenPayload, {
+      secret: this.config.getOrThrow<string>('JWT_RESET_SECRET'),
+      expiresIn: this.config.getOrThrow('JWT_RESET_EXPIRES_IN', '5m'),
+    });
+    return {
+      success: true,
+      message: 'Otp verify successfully',
+      data: {
+        resetToken,
+      },
+    };
+  }
+
+  async resetPassword(token: string, password: string) {
+    const decode = await this.jwtService.verifyAsync<RefreshTokenPayload>(
+      token,
+      {
+        secret: this.config.getOrThrow<string>('JWT_RESET_SECRET'),
+      },
+    );
+
+    if (!decode) {
+      throw new BadRequestException('Session will be expired');
+    }
+
+    const responseChangePassword =
+      await this.usersService.resetForgottenPassword(decode.userId, {
+        password: password,
+      });
+
+    return responseChangePassword;
   }
 }

@@ -9,6 +9,9 @@ describe('UsersService', () => {
   const prisma = {
     user: { findUnique: vi.fn(), update: vi.fn() },
     userSession: { updateMany: vi.fn() },
+    $transaction: vi.fn((callback: (tx: typeof prisma) => unknown) =>
+      callback(prisma),
+    ),
   };
 
   beforeEach(async () => {

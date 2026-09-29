@@ -69,6 +69,14 @@ export class EnvironmentVariables {
   JWT_2FA_EXPIRES_IN: ExpiresIn = '15m';
 
   @IsString()
+  @MinLength(MIN_SECRET_LENGTH)
+  JWT_RESET_SECRET: string;
+
+  @IsOptional()
+  @Matches(EXPIRES_IN_PATTERN)
+  JWT_RESET_EXPIRES_IN: ExpiresIn = '5m';
+
+  @IsString()
   @IsNotEmpty()
   RESEND_API_KEY: string;
 

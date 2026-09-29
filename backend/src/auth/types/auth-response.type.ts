@@ -2,7 +2,9 @@ import { UserType } from '../../generated/prisma/enums.js';
 
 export interface LoginContext {
   ipAddress?: string;
-  deviceLabel?: string;
+  device?: string;
+  os?: string;
+  browser?: string;
 }
 
 export interface TokenPair {
@@ -29,8 +31,7 @@ export interface TwoFactorActionResponse {
   message: string;
 }
 
-export interface TwoFactorVerifyEnableResponse
-  extends TwoFactorActionResponse {
+export interface TwoFactorVerifyEnableResponse extends TwoFactorActionResponse {
   data: { twoFactorEnabled: boolean };
 }
 

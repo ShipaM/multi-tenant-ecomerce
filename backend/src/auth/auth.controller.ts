@@ -6,12 +6,13 @@ import {
   HttpCode,
   HttpStatus,
   Ip,
+  Param,
   Post,
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service.js';
-import { LoginDto } from './dto/login-dto.js';
+import { ForgotPasswordDto, LoginDto } from './dto/login-dto.js';
 import { RefreshTokenDto } from './dto/refresh-token.dto.js';
 import type { AuthenticatedUser } from './types/jwt-payload.type.js';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
@@ -20,6 +21,9 @@ import {
   TwoFactorDto,
   TwoFactorVerifyLoginOtpDto,
 } from './dto/two-factor.dto.js';
+import { ParseUserAgent } from '../common/decorators/user-agent.decorator.js';
+import type { UserAgentInfo } from '../common/types/user-agent.type.js';
+import { ResetPasswordDto } from './dto/reset-password.dto.js';
 
 @Controller('auth')
 export class AuthController {
@@ -27,27 +31,33 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   login(
     @Body() loginDto: LoginDto,
     @Ip() ip: string,
-    @Headers('user-agent') userAgent?: string,
+    @ParseUserAgent() userAgent: UserAgentInfo,
   ) {
     return this.authService.login(loginDto.email, loginDto.password, {
       ipAddress: ip,
-      deviceLabel: userAgent,
+      device: userAgent.device.model,
+      os: userAgent.os.name,
+      browser: userAgent.browser.name,
     });
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   refresh(
     @Body() refreshTokenDto: RefreshTokenDto,
     @Ip() ip: string,
-    @Headers('user-agent') userAgent?: string,
+    @ParseUserAgent() userAgent: UserAgentInfo,
   ) {
     return this.authService.refresh(refreshTokenDto.refreshToken, {
       ipAddress: ip,
-      deviceLabel: userAgent,
+      device: userAgent.device.model,
+      os: userAgent.os.name,
+      browser: userAgent.browser.name,
     });
   }
 
@@ -55,7 +65,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async logout(@CurrentUser() user: AuthenticatedUser) {
-    await this.authService.logout(user.sessionId);
+    await this.authService.logout(user.userId, user.sessionId);
     return { success: true };
   }
 
@@ -93,12 +103,77 @@ export class AuthController {
   async twoFactorVerifyLoginOtp(
     @Body() dto: TwoFactorVerifyLoginOtpDto,
     @Ip() ip: string,
-    @Headers('user-agent') userAgent?: string,
+    @ParseUserAgent() userAgent: UserAgentInfo,
   ) {
     return this.authService.twoFactorVerifyLoginOtp(
       dto.twoFactorToken,
       dto.otp,
-      { ipAddress: ip, deviceLabel: userAgent },
+      {
+        ipAddress: ip,
+        device: userAgent.device.model,
+        os: userAgent.os.name,
+        browser: userAgent.browser.name,
+      },
     );
+  }
+
+  @Get('sessions')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async sessions(@CurrentUser() user: AuthenticatedUser) {
+    const sessions = await this.authService.listSessions(user.userId);
+
+    return sessions.map((session) => ({
+      deviceLabel: session.deviceLabel,
+      ipAddress: session.ipAddress,
+      lastActiveAt: session.lastActiveAt,
+      sessionId: session.id,
+      expiresAt: session.expiresAt,
+      createdAt: session.createdAt,
+      isCurrent: session.id === user.sessionId,
+      os: session.os,
+      device: session.device,
+      browser: session.browser,
+    }));
+  }
+
+  @Post('sessions/:id/revoke')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async revokeSession(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') sessionId: string,
+  ) {
+    await this.authService.revokeSession(user.userId, sessionId);
+    return { success: true };
+  }
+
+  @Post('sessions/revoke-others')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async revokeOtherSessions(@CurrentUser() user: AuthenticatedUser) {
+    await this.authService.revokeOtherSessions(user.userId, user.sessionId);
+    return { success: true };
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  @Post('forgot-password/verify-otp')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async forgotPasswordVerifyOtp(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPasswordOtpVerification(dto.email, dto.otp!);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.resetToken, dto.password);
   }
 }
