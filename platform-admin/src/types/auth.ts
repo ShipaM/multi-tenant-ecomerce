@@ -1,4 +1,4 @@
-import { isUserType, type UserType } from "@/types/user";
+import { isUserType, type Session, type UserType } from "@/types/user";
 
 // Mirrors backend/src/auth/dto/login-dto.ts LoginDto.
 export type LoginPayload = {
@@ -21,6 +21,8 @@ export interface TwoFactorLoginResponse {
   message: string;
 }
 
+export type SessionsResponse = Session[];
+
 export type LoginResponse = Partial<CompleteLoginResponse> &
   Partial<TwoFactorLoginResponse>;
 
@@ -38,7 +40,7 @@ export const isTwoFactorRequiredResponse = (
 ): data is TwoFactorLoginResponse =>
   data.twoFactorRequired === true && typeof data.twoFactorToken === "string";
 
-export type LogoutResponse = {
+export type SuccessResponse = {
   success: boolean;
 };
 
@@ -51,6 +53,16 @@ export type VerifyOtpResponse = {
   success: boolean;
   message: string;
   data: { twoFactorEnabled: boolean };
+};
+export type ForgotPasswordResponse = {
+  success: boolean;
+  message: string;
+  data: { createdAt: Date };
+};
+export type ForgotPasswordOtpVerifyResponse = {
+  success: boolean;
+  message: string;
+  data: { resetToken: string };
 };
 
 // Mirrors backend/src/auth/dto/two-factor.dto.ts TwoFactorDto.
@@ -72,4 +84,18 @@ export type AuthNavigationState = {
   twoFactorToken?: string;
   redirectTo?: string;
   resetToken?: string;
+};
+
+export type SessionPayload = {
+  sessionId: string;
+};
+
+export type ForgotPasswordPayload = {
+  email: string;
+  otp?: string;
+};
+
+export type ResetPasswordPayload = {
+  password: string;
+  resetToken: string;
 };

@@ -97,11 +97,11 @@ export const ChangePassword = () => {
             />
           </div>
           <div className="grid gap-2">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="new-password">New Password</label>
             <PasswordInput
               className="h-10"
               name="password"
-              id="password"
+              id="new-password"
               placeholder="••••••••"
               value={data.password}
               onChange={handleOnChange}

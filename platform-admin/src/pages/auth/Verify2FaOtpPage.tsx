@@ -6,7 +6,6 @@ import {
 } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
 import { useAppDispatch, useAppSelector } from "@/hooks/use-store";
-import { getAxiosErrorMessage } from "@/lib/api.error";
 import { isSafeRedirectPath } from "@/lib/redirect";
 import { verify2FaLoginOtp } from "@/store/auth/authSlice";
 import {
@@ -15,7 +14,7 @@ import {
   type AuthNavigationState,
 } from "@/types";
 import { ArrowLeft } from "lucide-react";
-import { useState, type SubmitEvent } from "react";
+import { useEffect, useState, type SubmitEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
 
 const Verify2FaOtpPage = () => {
@@ -36,6 +35,10 @@ const Verify2FaOtpPage = () => {
   const [error, setError] = useState<string | null>(null);
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!twoFactorToken) navigate("/auth/login");
+  }, [twoFactorToken, navigate]);
 
   const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -60,8 +63,8 @@ const Verify2FaOtpPage = () => {
           },
         });
       }
-    } catch (error) {
-      setError(getAxiosErrorMessage(error, "Failed to verify otp"));
+    } catch (err) {
+      setError(typeof err === "string" ? err : "Failed to verify otp");
     }
   };
 

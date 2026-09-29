@@ -1,10 +1,16 @@
 import { Axios } from "@/lib/axios";
 import type {
   ChangePasswordPayload,
+  ForgotPasswordOtpVerifyResponse,
+  ForgotPasswordPayload,
+  ForgotPasswordResponse,
   GenerateOtpResponse,
   LoginPayload,
   LoginResponse,
-  LogoutResponse,
+  ResetPasswordPayload,
+  SessionPayload,
+  SessionsResponse,
+  SuccessResponse,
   UpdateProfilePayload,
   UpdateProfileResponse,
   User,
@@ -22,7 +28,7 @@ export const authApi = {
   me: () => Axios.get<User>("/auth/me").then((response) => response.data),
 
   logout: () =>
-    Axios.post<LogoutResponse>("/auth/logout").then(
+    Axios.post<SuccessResponse>("/auth/logout").then(
       (response) => response.data,
     ),
 
@@ -50,6 +56,35 @@ export const authApi = {
 
   verify2FaLoginOtp: (payload: Verify2FaLoginOtpPayload) =>
     Axios.post<LoginResponse>("/auth/2fa-verify-login-otp", payload).then(
+      (res) => res.data,
+    ),
+
+  sessions: () =>
+    Axios.get<SessionsResponse>("/auth/sessions").then((res) => res.data),
+
+  sessionRevoke: (payload: SessionPayload) =>
+    Axios.post<SuccessResponse>(
+      `/auth/sessions/${payload.sessionId}/revoke`,
+    ).then((res) => res.data),
+
+  sessionRevokeOthers: () =>
+    Axios.post<SuccessResponse>("/auth/sessions/revoke-others").then(
+      (res) => res.data,
+    ),
+
+  forgotPassword: (payload: ForgotPasswordPayload) =>
+    Axios.post<ForgotPasswordResponse>("/auth/forgot-password", payload).then(
+      (res) => res.data,
+    ),
+
+  forgotPasswordOtpVerify: (payload: ForgotPasswordPayload) =>
+    Axios.post<ForgotPasswordOtpVerifyResponse>(
+      "/auth/forgot-password/verify-otp",
+      payload,
+    ).then((res) => res.data),
+
+  resetForgottenPassword: (payload: ResetPasswordPayload) =>
+    Axios.post<UpdateProfileResponse>("/auth/reset-password", payload).then(
       (res) => res.data,
     ),
 };

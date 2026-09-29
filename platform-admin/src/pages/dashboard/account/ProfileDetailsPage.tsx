@@ -1,4 +1,3 @@
-import { Fragment } from "react";
 import { PageTitle, UserAvatar } from "@/components";
 import { Card } from "@/components/ui/card";
 import { useAppSelector } from "@/hooks/use-store";
@@ -6,31 +5,12 @@ import {
   EditProfile,
   ChangePassword,
   TwoFactorAuthentication,
+  SessionsList,
 } from "./components";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight } from "lucide-react";
-
-const ACTIVE_SESSIONS = [
-  {
-    id: "1",
-    device: "MacBook Air - Bengaluru, IN",
-    status: "Active now",
-    isCurrent: true,
-  },
-  {
-    id: "2",
-    device: "iPhone 15 - Bengaluru, IN",
-    status: "Last active 2 hours ago",
-    isCurrent: false,
-  },
-  {
-    id: "3",
-    device: "Chrome on Windows - Mumbai, IN",
-    status: "Last active 3 days ago",
-    isCurrent: false,
-  },
-];
+import moment from "moment";
 
 const ProfileDetailsPage = () => {
   const user = useAppSelector((state) => state.auth.user);
@@ -73,7 +53,6 @@ const ProfileDetailsPage = () => {
                 </div>
               </div>
             </Card>
-
             <Card className="p-4 lg:p-6">
               <PageTitle
                 title="Password & Security"
@@ -85,7 +64,9 @@ const ProfileDetailsPage = () => {
                   <div>
                     <div>Password</div>
                     <p className="text-xs text-muted-foreground">
-                      Last changed 2 months ago
+                      {moment(user?.passwordUpdatedAt)
+                        .startOf("seconds")
+                        .fromNow()}
                     </p>
                   </div>
                   <ChangePassword />
@@ -116,44 +97,7 @@ const ProfileDetailsPage = () => {
                 </div>
               </div>
             </Card>
-
-            <Card className="p-4 lg:p-6">
-              <div className="flex justify-between items-start gap-3">
-                <PageTitle
-                  title="Active sessions"
-                  classNameTitle="font-medium text-base"
-                  description="Devices where you're currently signed in"
-                />
-                <span className="text-sm text-muted-foreground whitespace-nowrap">
-                  {ACTIVE_SESSIONS.length} devices signed in
-                </span>
-              </div>
-              <div className="grid gap-3">
-                {ACTIVE_SESSIONS.map((session, index) => (
-                  <Fragment key={session.id}>
-                    <div className="flex justify-between items-center gap-3">
-                      <div>
-                        <div>{session.device}</div>
-                        <p className="text-xs text-muted-foreground">
-                          {session.status}
-                        </p>
-                      </div>
-                      {session.isCurrent ? (
-                        <Badge variant="secondary">This device</Badge>
-                      ) : (
-                        <Button variant="outline">Revoke</Button>
-                      )}
-                    </div>
-                    {index < ACTIVE_SESSIONS.length - 1 && (
-                      <div className="border-b"></div>
-                    )}
-                  </Fragment>
-                ))}
-              </div>
-              <Button variant="destructive" className="w-fit">
-                Sign out all other sessions
-              </Button>
-            </Card>
+            <SessionsList />
           </div>
           <div>
             <Card className="p-4 lg:p-6">

@@ -38,9 +38,7 @@ const AuthLayout = () => {
           </p>
         </div>
 
-        <p className="text-xs text-[#8fb093]">
-          &copy; 2026 Dynamic Coding with Amit
-        </p>
+        <p className="text-xs text-[#8fb093]">&copy; 2026</p>
       </div>
       <main className="flex flex-1 items-center justify-center bg-background p-8">
         <Suspense fallback={<RouteFallback />}>

@@ -21,8 +21,10 @@ export interface User {
   phone: string;
   status: "ACTIVE" | "INACTIVE";
   twoFactorEnabled?: boolean;
+  twoFactorSecret?: boolean;
   createdAt: Date;
   updatedAt: Date;
+  passwordUpdatedAt?: Date;
   role?: Role;
   // Initials derived on the client from fullName/email for the avatar fallback.
   avatarName?: string;
@@ -48,4 +50,17 @@ export type UpdateProfileResponse = {
   user: User;
   message: string;
   success: boolean;
+};
+
+export type Session = {
+  deviceLabel: string | null;
+  ipAddress: string;
+  lastActiveAt: Date;
+  sessionId: string;
+  expiresAt: Date;
+  createdAt: Date;
+  isCurrent: boolean;
+  os: string | null;
+  device: string | null;
+  browser: string | null;
 };

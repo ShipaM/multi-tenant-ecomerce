@@ -1,14 +1,21 @@
 import { authApi } from "@/api/auth";
 import { getAxiosErrorMessage } from "@/lib/api.error";
 import { storage } from "@/lib/storage";
+import { isAxiosError } from "axios";
 import {
   isCompleteLoginResponse,
   isTwoFactorRequiredResponse,
   type ChangePasswordPayload,
+  type ForgotPasswordOtpVerifyResponse,
+  type ForgotPasswordPayload,
+  type ForgotPasswordResponse,
   type GenerateOtpResponse,
   type LoginPayload,
   type LoginResponse,
-  type LogoutResponse,
+  type ResetPasswordPayload,
+  type SessionPayload,
+  type SessionsResponse,
+  type SuccessResponse,
   type UpdateProfilePayload,
   type UpdateProfileResponse,
   type User,
@@ -48,6 +55,9 @@ const initialState: AuthState = {
   twoFactorToken: null,
   twoFactorRequired: false,
   isVerify2FaLoginOtpLoading: false,
+
+  sessions: [],
+  isSessionsLoading: false,
 };
 
 export const fetchLogin = createAsyncThunk<
@@ -75,24 +85,34 @@ export const fetchLogin = createAsyncThunk<
   }
 });
 
-export const fetchMe = createAsyncThunk<User, void, { rejectValue: string }>(
-  "auth/fetchMe",
-  async (_, { rejectWithValue }) => {
-    try {
-      const data = await authApi.me();
+export const fetchMe = createAsyncThunk<
+  User,
+  void,
+  { rejectValue: { message: string; unauthorized: boolean } }
+>("auth/fetchMe", async (_, { rejectWithValue }) => {
+  try {
+    const data = await authApi.me();
 
-      return data;
-    } catch (error) {
+    return data;
+  } catch (error) {
+    // Only a genuine 401 means the session itself is invalid. A network
+    // blip or a 5xx shouldn't wipe the user's tokens and force a logout.
+    const unauthorized =
+      isAxiosError(error) && error.response?.status === 401;
+
+    if (unauthorized) {
       storage.clearStoradge();
-      return rejectWithValue(
-        getAxiosErrorMessage(error, "Could not load the current user"),
-      );
     }
-  },
-);
+
+    return rejectWithValue({
+      message: getAxiosErrorMessage(error, "Could not load the current user"),
+      unauthorized,
+    });
+  }
+});
 
 export const fetchLogout = createAsyncThunk<
-  LogoutResponse,
+  SuccessResponse,
   void,
   { rejectValue: string }
 >("auth/fetchLogout", async (_, { rejectWithValue }) => {
@@ -204,6 +224,108 @@ export const verify2FaLoginOtp = createAsyncThunk<
   },
 );
 
+export const fetchSessionsList = createAsyncThunk<
+  SessionsResponse,
+  void,
+  { rejectValue: string }
+>("auth/fetchSessionsList", async (_, { rejectWithValue }) => {
+  try {
+    const data = await authApi.sessions();
+    return data;
+  } catch (error) {
+    return rejectWithValue(
+      getAxiosErrorMessage(error, "Failed to fetch sessions"),
+    );
+  }
+});
+
+export const revokeSession = createAsyncThunk<
+  SuccessResponse,
+  SessionPayload,
+  { rejectValue: string }
+>(
+  "auth/revokeSession",
+  async (payload: SessionPayload, { rejectWithValue }) => {
+    try {
+      const data = await authApi.sessionRevoke(payload);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        getAxiosErrorMessage(error, "Failed to revoke the session"),
+      );
+    }
+  },
+);
+
+export const revokeOtherSessions = createAsyncThunk<
+  SuccessResponse,
+  void,
+  { rejectValue: string }
+>("auth/revokeOtherSessions", async (_, { rejectWithValue }) => {
+  try {
+    const data = await authApi.sessionRevokeOthers();
+    return data;
+  } catch (error) {
+    return rejectWithValue(
+      getAxiosErrorMessage(error, "Failed to sign out other sessions"),
+    );
+  }
+});
+
+export const fetchForgotPassword = createAsyncThunk<
+  ForgotPasswordResponse,
+  ForgotPasswordPayload,
+  { rejectValue: string }
+>(
+  "auth/fetchForgotPassword",
+  async (payload: ForgotPasswordPayload, { rejectWithValue }) => {
+    try {
+      const data = await authApi.forgotPassword(payload);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        getAxiosErrorMessage(error, "Failed to send forgot password email"),
+      );
+    }
+  },
+);
+
+export const fetchForgotPasswordOtpVerify = createAsyncThunk<
+  ForgotPasswordOtpVerifyResponse,
+  ForgotPasswordPayload,
+  { rejectValue: string }
+>(
+  "auth/fetchForgotPasswordOtpVerify",
+  async (payload: ForgotPasswordPayload, { rejectWithValue }) => {
+    try {
+      const data = await authApi.forgotPasswordOtpVerify(payload);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        getAxiosErrorMessage(error, "Failed to verify forgot password otp"),
+      );
+    }
+  },
+);
+
+export const resetForgottenPassword = createAsyncThunk<
+  UpdateProfileResponse,
+  ResetPasswordPayload,
+  { rejectValue: string }
+>(
+  "auth/resetForgottenPassword",
+  async (payload: ResetPasswordPayload, { rejectWithValue }) => {
+    try {
+      const data = await authApi.resetForgottenPassword(payload);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        getAxiosErrorMessage(error, "Failed to reset password"),
+      );
+    }
+  },
+);
+
 export const authSlice = createSlice({
   name: "auth",
   initialState,
@@ -254,11 +376,15 @@ export const authSlice = createSlice({
       })
       .addCase(fetchMe.rejected, (state, action) => {
         state.isMeLoading = false;
-        state.error = action.payload ?? "Could not load the current user";
+        state.error =
+          action.payload?.message ?? "Could not load the current user";
         state.user = null;
-        state.accessToken = null;
-        state.refreshToken = null;
-        state.userType = "PLATFORM_ADMIN";
+
+        if (action.payload?.unauthorized) {
+          state.accessToken = null;
+          state.refreshToken = null;
+          state.userType = "PLATFORM_ADMIN";
+        }
       });
 
     builder
@@ -362,6 +488,19 @@ export const authSlice = createSlice({
         state.accessToken = null;
         state.refreshToken = null;
         state.userType = "PLATFORM_ADMIN";
+      });
+
+    builder
+      .addCase(fetchSessionsList.pending, (state) => {
+        state.isSessionsLoading = true;
+      })
+      .addCase(fetchSessionsList.fulfilled, (state, action) => {
+        state.isSessionsLoading = false;
+        state.sessions = action.payload;
+      })
+      .addCase(fetchSessionsList.rejected, (state) => {
+        state.isSessionsLoading = false;
+        state.sessions = [];
       });
   },
 });

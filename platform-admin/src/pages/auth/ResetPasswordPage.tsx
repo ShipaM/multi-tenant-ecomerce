@@ -1,5 +1,6 @@
 import { PasswordInput, PrefetchLink } from "@/components";
 import { Button } from "@/components/ui/button";
+
 import {
   Field,
   FieldError,
@@ -7,16 +8,23 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
-import type { AuthNavigationState } from "@/types";
+import { useAppDispatch } from "@/hooks/use-store";
+import { resetForgottenPassword } from "@/store/auth/authSlice";
+import type { AuthNavigationState, ResetPasswordPayload } from "@/types";
 import { CheckCircle2 } from "lucide-react";
-import { useState, type SubmitEvent, type ChangeEvent } from "react";
-import { useLocation } from "react-router";
+import { useState, type SubmitEvent, type ChangeEvent, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router";
+import { toast } from "sonner";
 
 const ResetPassword = () => {
   const location = useLocation();
   const navState = location.state as AuthNavigationState | null;
+  const dispatch = useAppDispatch();
 
   const email = navState?.email;
+  const resetToken = navState?.resetToken;
+
+  const navigate = useNavigate();
 
   const [password, setPassword] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
@@ -27,21 +35,52 @@ const ResetPassword = () => {
 
   const misMatch = confirmPassword.length > 0 && password !== confirmPassword;
 
-  const handleSubmit = (e: SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (misMatch) return;
+    if (misMatch) {
+      setError("Password and confirm password must be the same");
+      return;
+    }
+
+    if (!resetToken) {
+      setError("Session will be expired. Please try again.");
+      return;
+    }
 
     setError(null);
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      setPassword("");
-      setConfirmPassword("");
-      setIsDone(true);
+
+    const payload: ResetPasswordPayload = {
+      password,
+      resetToken,
+    };
+
+    try {
+      const response = await dispatch(
+        resetForgottenPassword(payload),
+      ).unwrap();
+
+      if (response.success) {
+        setIsDone(true);
+        setPassword("");
+        setConfirmPassword("");
+        setIsSubmitting(false);
+        toast.success(response.message || "Password reset successfully");
+      }
+    } catch (err) {
+      const message =
+        typeof err === "string" ? err : "Failed to reset password";
+      setError(message);
+      toast.error(message);
       setIsSubmitting(false);
-    }, 2000);
+    }
   };
+
+  useEffect(() => {
+    if (!email || !resetToken) navigate("/auth/forgot-password");
+  }, [email, resetToken, navigate]);
 
   if (isDone) {
     return (
@@ -51,8 +90,8 @@ const ResetPassword = () => {
         </div>
         <h1 className="mt-4 text-2xl font-bold">Password Updated</h1>
         <p className="mt-2 text-sm text-muted-foreground text-center">
-          Your passowrd has been reset. You can now sign in with your new
-          passoword.
+          Your password has been reset. You can now sign in with your new
+          password.
         </p>
         <Button asChild className="mt-10 h-11 w-full">
           <PrefetchLink prefetchModule="login" to={"/auth/login"}>
@@ -69,7 +108,7 @@ const ResetPassword = () => {
       <p className="mt-1.5 text-sm text-muted-foreground">
         {email ? (
           <>
-            New password for{" "}
+            New password for
             <span className="font-medium text-foreground">{email}</span>
           </>
         ) : (
@@ -110,7 +149,7 @@ const ResetPassword = () => {
               disabled={isSubmitting}
             />
 
-            {misMatch && <FieldError>Passowrds don't match</FieldError>}
+            {misMatch && <FieldError>Passwords don't match</FieldError>}
           </Field>
 
           {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
@@ -131,6 +170,17 @@ const ResetPassword = () => {
           </Button>
         </FieldGroup>
       </form>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Already had an account:{" "}
+        <PrefetchLink
+          to="/auth/login"
+          prefetchModule="login"
+          aria-label="Back to sign in"
+          className="font-medium text-primary hover:underline"
+        >
+          Sign in
+        </PrefetchLink>
+      </p>
     </div>
   );
 };
