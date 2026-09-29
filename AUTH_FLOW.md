@@ -3,22 +3,48 @@
 This document traces exactly what happens, end to end, on the **platform-admin**
 frontend, all the way through the **backend** (NestJS + Prisma + PostgreSQL), for:
 
-1. Signing in (login form → tokens → session → `/auth/me`)
+1. Signing in (login form → tokens → session → `/auth/me`), including the
+   second step when two-factor authentication (2FA) is enabled (section 9a)
 2. Enabling / disabling two-factor authentication (email OTP)
 3. Changing your password
 4. Editing your profile
 
 It reflects the current state of the code:
 
-- Frontend: `platform-admin/src/pages/auth/LoginPage.tsx`,
+- Frontend: `platform-admin/src/pages/auth/{LoginPage,Verify2FaOtpPage}.tsx`,
   `pages/dashboard/account/components/{ChangePassword,TwoFactorAuthentication,EditProfile}.tsx`,
   `store/auth/authSlice.ts`, `api/auth.ts`, `lib/axios.ts`, `lib/storage.ts`
 - Backend: `backend/src/auth/auth.controller.ts`, `auth.service.ts`,
-  `dto/{login-dto,two-factor}.ts`, `jwt.strategy.ts`, `guards/jwt-auth.guard.ts`,
+  `dto/{login-dto,two-factor.dto}.ts`, `strategies/jwt.strategy.ts`,
+  `backend/src/common/guards/jwt-auth.guard.ts`,
   `backend/src/users/users.controller.ts`, `users.service.ts`,
   `dto/{update-user,change-password}.dto.ts`,
   `backend/src/email/email.service.ts`,
   `backend/src/main.ts`, `backend/prisma/schema.prisma`
+
+### Reading the "On the wire" blocks
+
+Every step that talks to the backend is followed by an **On the wire** block with
+the exact JSON that travels between the browser and the API — what you see in
+Chrome DevTools → **Network** → select the request → **Payload** (what the browser
+sent) and **Preview** (what the server answered). The examples were captured from a
+real run of the app; secrets are replaced with placeholders such as `<JWT>`.
+Screenshots of the real Network panel for every one of these requests are in the
+Russian walkthrough, [`AUTH_FLOW_RU.pdf`](AUTH_FLOW_RU.pdf).
+
+Quick reference of every endpoint covered here (base URL `http://localhost:4000`):
+
+| Request | Auth | Body (Payload) | Section |
+|---|---|---|---|
+| `POST /auth/login` | public | `{ email, password }` | 4, 9, 9a |
+| `POST /auth/2fa-verify-login-otp` | public (proves identity with `twoFactorToken`) | `{ otp, twoFactorToken }` | 9a |
+| `GET /auth/me` | Bearer access token | none | 10 |
+| `POST /auth/2fa-generate-otp` | Bearer access token | none | 12 |
+| `POST /auth/2fa-verify-enable` | Bearer access token | `{ otp }` | 12 |
+| `PUT /users/change-password` | Bearer access token | `{ currentPassword, password }` | 13 |
+| `PUT /users/me` | Bearer access token | `{ fullName, email, phone, profileImage }` | 14 |
+| `POST /auth/refresh` | public (refresh token in body) | `{ refreshToken }` | 15 |
+| `POST /auth/logout` | Bearer access token | none | — |
 
 ---
 
@@ -47,14 +73,21 @@ sequenceDiagram
     P-->>S: User row (or null)
     S->>S: bcrypt.compare(password, user.passwordHash ?? dummyHash)
     S->>S: check user.status === ACTIVE
-    S->>S: issueTokenPair(user, context)
-    S->>P: INSERT INTO user_sessions (hashed refresh token, ip, device)
-    P-->>S: session created
-    S-->>C: { accessToken, refreshToken, userType }
-    C-->>A: 200 OK JSON
-    A-->>T: response.data
-    T->>T: validate shape, store tokens in localStorage
-    T-->>F: fulfilled -> navigate("/dashboard")
+    alt user.twoFactorEnabled (section 9a)
+        S-->>C: { twoFactorRequired: true, twoFactorToken, message } (no tokens yet)
+        C-->>A: 200 OK JSON
+        A-->>T: response.data
+        T-->>F: fulfilled -> navigate("/auth/2fa", { twoFactorToken })
+    else 2FA is off
+        S->>S: issueTokenPair(user, context)
+        S->>P: INSERT INTO user_sessions (hashed refresh token, ip, device)
+        P-->>S: session created
+        S-->>C: { accessToken, refreshToken, userType }
+        C-->>A: 200 OK JSON
+        A-->>T: response.data
+        T->>T: validate shape, store tokens in localStorage
+        T-->>F: fulfilled -> navigate(redirectTo, default "/dashboard")
+    end
     F->>T: (ProtectedRoute) dispatch(fetchMe())
     T->>A: GET /auth/me with Authorization: Bearer <accessToken>
     A->>N: JwtAuthGuard -> JwtStrategy.validate()
@@ -109,7 +142,12 @@ Same pattern as the email field:
    `.unwrap()` makes the promise reject with the thunk's rejected payload
    instead of resolving with an action object, so it can be caught with a
    plain `try/catch`.
-4. On success: `navigate("/dashboard")`.
+4. On a complete response (tokens): `navigate(redirectTo, { replace: true })`,
+   where `redirectTo` is the validated `?redirect_uri=` query parameter (the page
+   the user originally asked for) or `/dashboard` by default. If the response is
+   instead `twoFactorRequired`, it navigates to
+   `/auth/2fa` with `{ twoFactorToken, email, redirectTo }` in the router state
+   (section 9a).
 5. On failure: the thrown value (a string message) is placed into `error`
    state and rendered under the fields.
 6. `finally` always resets `isSubmitting` back to `false`.
@@ -130,6 +168,20 @@ authApi.login(payload) -> POST /auth/login
 - The request goes to `VITE_APP_API_BASE_URL` (falls back to
   `http://localhost:4000`) — a plain cross-origin HTTP call from the
   platform-admin dev server to the Nest API.
+
+**On the wire** — Network → `login` → Payload:
+
+```http
+POST http://localhost:4000/auth/login
+Content-Type: application/json
+
+{ "email": "user@example.com", "password": "<the password exactly as typed>" }
+```
+
+Those two fields are the whole request body. The password travels in clear text
+*inside* the request — that is normal; in production the HTTPS connection is what
+protects it in transit (on `localhost` in development there is no TLS). On the
+server it is only ever compared against a bcrypt hash, never stored or logged.
 
 ## 5. Backend request pipeline (before the controller runs)
 
@@ -193,6 +245,18 @@ if (!user || !passwordMatches) {
 if (user.status !== UserStatus.ACTIVE) {
   throw new ForbiddenException('This account is not active');
 }
+if (user.twoFactorEnabled) {
+  // Password is right, but no tokens yet: e-mail a one-time code and hand back a
+  // short-lived "ticket" for the second step (section 9a).
+  const result = await this.twoFactorCreateOtpToken(user.id);
+  return {
+    twoFactorRequired: true,
+    twoFactorToken: result.twoFactorToken,
+    message: result.message,
+  };
+}
+const tokens = await this.issueTokenPair(user, context);
+return { ...tokens, userType: user.userType };
 ```
 
 Step by step:
@@ -216,7 +280,11 @@ Step by step:
    (e.g. `SUSPENDED`), a `403 Forbidden` ("This account is not active") is
    thrown instead — this is the first point where a *different* error message
    is possible, but only after the password has already been proven correct.
-5. On success, `issueTokenPair(user, context)` is called.
+5. If the account has `twoFactorEnabled`, **no tokens are issued at this point**:
+   the service creates and e-mails a login OTP and returns a `twoFactorToken`
+   instead (section 9a). The password has been proven correct, but the session
+   only starts after the second step.
+6. Otherwise `issueTokenPair(user, context)` is called (section 8).
 
 ## 8. Issuing tokens and creating a session
 
@@ -261,38 +329,148 @@ async issueTokenPair(user, context) {
   `userType` and returns `{ accessToken, refreshToken, userType }` as the
   final HTTP response body.
 
+**On the wire** — Network → `login` (2FA off) → Preview:
+
+```json
+{
+  "accessToken": "<JWT, payload { userId, email, userType, sid }>",
+  "refreshToken": "<JWT, payload { userId, sessionId }>",
+  "userType": "PLATFORM_ADMIN"
+}
+```
+
 ## 9. Response reaches the frontend
 
 Back in `platform-admin/src/store/auth/authSlice.ts`, `fetchLogin`:
 
 ```ts
 const tokens = await authApi.login(payload);
-if (!isCompleteLoginResponse(tokens)) {
-  return rejectWithValue("Could not Sign in: incomplete response");
+if (isCompleteLoginResponse(tokens)) {
+  storage.setTokens(tokens.accessToken, tokens.refreshToken);
+  storage.setUserType(tokens.userType);
+  return tokens;
 }
-storage.setItem(ACCESS_TOKEN, tokens.accessToken);
-storage.setItem(REFRESH_TOKEN, tokens.refreshToken);
-storage.setItem(USER_TYPE, tokens.userType);
-return tokens;
+if (isTwoFactorRequiredResponse(tokens)) {
+  return tokens; // nothing is stored: there is no session yet
+}
+return rejectWithValue("Could not Sign in: incomplete response");
 ```
 
 - `isCompleteLoginResponse` is a runtime type guard: it re-checks that
   `accessToken`/`refreshToken` are non-empty strings and `userType` is a known
   enum value, in case the backend ever returns a partial/malformed body.
-- Both tokens and the `userType` are written to `localStorage` under
-  versioned keys (`auth:v1:access-token`, etc.) via `platform-admin/src/lib/storage.ts`,
-  which wraps every read/write in `try/catch` (private-browsing / storage
-  quota issues degrade gracefully instead of throwing).
+  `isTwoFactorRequiredResponse` recognizes the 2FA challenge (section 9a).
+- Both tokens and the `userType` are written to `localStorage` under the keys
+  `ACCESS_TOKEN`, `REFRESH_TOKEN` and `USER_TYPE` via
+  `platform-admin/src/lib/storage.ts`, which wraps every read/write in
+  `try/catch` (private-browsing / storage quota issues degrade gracefully
+  instead of throwing).
 - On `fetchLogin.fulfilled`, the Redux slice sets `accessToken`, `refreshToken`,
   `userType` and `status: "succeeded"`.
 - Back in `LoginPage`, the `await ... .unwrap()` call resolves, and
-  `navigate("/dashboard")` fires.
+  `navigate(redirectTo)` fires (or the 2FA navigation, section 9a).
 - If anything above throws (network error, 400, 403, malformed response), the
-  `catch` branch calls `storage.clearSession()` (wipes any stale tokens) and
+  `catch` branch calls `storage.clearStoradge()` (wipes stale storage) and
   rejects with a human-readable message extracted by
   `getAxiosErrorMessage` — which reads `error.response.data.message` (a string
   or the first entry of the validation-error array) and falls back to a
   generic default. That string is what `LoginPage` shows under the form.
+
+## 9a. Signing in when 2FA is enabled — the second step
+
+Files: `LoginPage.tsx`, `Verify2FaOtpPage.tsx`, `authSlice.ts` (`fetchLogin`,
+`verify2FaLoginOtp`), `auth.controller.ts` (`POST /auth/login`,
+`POST /auth/2fa-verify-login-otp`), `auth.service.ts` (`twoFactorCreateOtpToken`,
+`twoFactorEnable`, `verifyOtp`, `twoFactorVerifyLoginOtp`), Prisma model
+`TwoFactorOtp`.
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant L as LoginPage.tsx
+    participant V as Verify2FaOtpPage.tsx
+    participant C as AuthController
+    participant S as AuthService
+    participant P as Prisma / PostgreSQL
+    participant E as EmailService (Resend)
+
+    U->>L: submits email + password
+    L->>C: POST /auth/login { email, password }
+    C->>S: authService.login(...) -> password OK, twoFactorEnabled
+    S->>P: expire live LOGIN OTPs, INSERT TwoFactorOtp (purpose LOGIN, bcrypt hash, expires in 5 min)
+    S->>E: send the 6-digit code to the user's e-mail
+    S->>S: sign { userId } with JWT_2FA_SECRET (JWT_2FA_EXPIRES_IN, 15m) = twoFactorToken
+    S-->>L: 200 { twoFactorRequired: true, twoFactorToken, message }
+    L->>V: navigate("/auth/2fa", { twoFactorToken, email, redirectTo })
+    U->>V: types the 6-digit code from the e-mail, clicks "Verify 2FA OTP"
+    V->>C: POST /auth/2fa-verify-login-otp { otp, twoFactorToken }
+    C->>S: twoFactorVerifyLoginOtp(twoFactorToken, otp, context)
+    S->>S: verify twoFactorToken signature + expiry
+    S->>P: load user, must be ACTIVE
+    S->>P: verifyOtp(user, LOGIN, otp): newest live LOGIN OTP, attempts < 5, bcrypt.compare
+    S->>P: mark OTP verifiedAt, then issueTokenPair -> INSERT user_sessions
+    S-->>V: 200 { accessToken, refreshToken, userType }
+    V->>V: store tokens -> navigate(redirectTo)
+```
+
+**Step 1 — the challenge.** The request is the ordinary login request from
+section 4.1; only the answer differs. **On the wire** — Network → `login` →
+Preview:
+
+```json
+{
+  "twoFactorRequired": true,
+  "twoFactorToken": "<JWT signed with JWT_2FA_SECRET, payload { userId }, 15 min>",
+  "message": "Otp send successfully"
+}
+```
+
+There is **no** `accessToken`/`refreshToken` in this answer and nothing is written
+to `localStorage`. `LoginPage` passes the `twoFactorToken` to the next page in the
+router state (in memory only). The code itself is never part of any HTTP response —
+it only travels by e-mail.
+
+**Step 2 — the verification.** **On the wire** — Network →
+`2fa-verify-login-otp` → Payload:
+
+```http
+POST http://localhost:4000/auth/2fa-verify-login-otp
+Content-Type: application/json
+
+{ "otp": "123456", "twoFactorToken": "<JWT from step 1>" }
+```
+
+Preview (same shape as a plain login):
+
+```json
+{
+  "accessToken": "<JWT>",
+  "refreshToken": "<JWT>",
+  "userType": "PLATFORM_ADMIN"
+}
+```
+
+- The endpoint is **public** (no `JwtAuthGuard`): the user has no session yet, so
+  `twoFactorToken` is what identifies them. The server keeps no memory between the
+  two requests; the browser returns the ticket together with the code. The Axios
+  interceptor attaches no `Authorization` header here because there is no access
+  token yet.
+- `twoFactorToken` is signed with its **own** secret (`JWT_2FA_SECRET`), so it can
+  never be used as an access or refresh token, and vice versa.
+- Every OTP row carries a `purpose` (`LOGIN` or `ENABLE_TOGGLE`). `verifyOtp`
+  only looks at OTPs of the expected purpose, so a code e-mailed for logging in
+  cannot be replayed on the "disable 2FA" form (and the other way round).
+- The endpoint is rate-limited (`@Throttle`, 5 requests per minute) on top of the
+  per-code limit of 5 wrong attempts.
+
+| Situation | Status | Message |
+|---|---|---|
+| `twoFactorToken` invalid or expired | 400 | `Session is Expired` |
+| No live (unverified, unexpired) LOGIN OTP for the user | 400 | `Otp expired or invalid` |
+| Wrong code (attempt counter is incremented) | 400 | `Invalid Otp` |
+| 5 wrong attempts already used on this code | 400 | `Too many otp attempts` |
+| Account no longer `ACTIVE` | 403 | `This account is not active` |
+| More than 5 requests per minute | 429 | rate-limit error |
 
 ## 10. Immediately after redirect: `/dashboard` and `/auth/me`
 
@@ -309,7 +487,7 @@ return tokens;
 ### Backend side of `/auth/me`
 
 - `@UseGuards(JwtAuthGuard)` runs Passport's `jwt` strategy
-  (`backend/src/auth/jwt.strategy.ts`) **before** the controller method:
+  (`backend/src/auth/strategies/jwt.strategy.ts`) **before** the controller method:
   1. Extracts the bearer token from the `Authorization` header.
   2. Verifies its signature and expiry against `JWT_ACCESS_SECRET`.
   3. `validate(payload)` loads the session row by `payload.sid`, rejecting
@@ -326,6 +504,35 @@ return tokens;
 - The frontend stores the returned profile in `state.auth.user`, additionally
   computing `avatarName` (initials) client-side from `fullName`/`email`.
 
+**On the wire** — Network → `me`. This request has **no body**, so DevTools shows
+no Payload tab; the interesting part is the **Headers** tab:
+
+```http
+GET http://localhost:4000/auth/me
+Authorization: Bearer <accessToken>
+```
+
+Preview (the password hash and the 2FA secret are omitted by the query):
+
+```json
+{
+  "id": "<cuid>",
+  "email": "user@example.com",
+  "fullName": "Full Name",
+  "phone": "<phone>",
+  "profileImage": "https://…",
+  "status": "ACTIVE",
+  "userType": "PLATFORM_ADMIN",
+  "twoFactorEnabled": true,
+  "createdAt": "<ISO timestamp>",
+  "updatedAt": "<ISO timestamp>"
+}
+```
+
+In development you will usually see **two** `me` requests in a row: React Strict
+Mode intentionally runs the effect twice, and the second one is typically answered
+with `304 Not Modified` (the browser's conditional-request cache).
+
 ## 11. What happens on a wrong email or wrong password
 
 | Situation | Where it's caught | HTTP status | Message shown to user |
@@ -336,6 +543,7 @@ return tokens;
 | Email not registered | `AuthService.login` | 401 | "Invalid email or password" (generic, on purpose) |
 | Email registered, wrong password | `AuthService.login` | 401 | "Invalid email or password" (same generic message) |
 | Correct credentials, account not `ACTIVE` | `AuthService.login` | 403 | "This account is not active" |
+| Correct credentials, 2FA enabled | `AuthService.login` | 200 | none — the answer is `twoFactorRequired: true` + `twoFactorToken`, and the UI moves to the code page (section 9a) |
 | Network/CORS/unreachable backend | Axios (no `response`) | — | falls back to the thunk's default message, e.g. "Could not Sign in" |
 | Unhandled server exception | `AllExceptionsFilter` | 500 | "Internal server error" (real error only in server logs) |
 
@@ -346,9 +554,9 @@ the login form; nothing crashes the UI.
 ## 12. Two-factor authentication — enabling & disabling
 
 Files: `platform-admin/src/pages/dashboard/account/components/TwoFactorAuthentication.tsx`,
-`backend/src/auth/auth.controller.ts` (`GET /auth/2fa-generate-otp`,
+`backend/src/auth/auth.controller.ts` (`POST /auth/2fa-generate-otp`,
 `POST /auth/2fa-verify-enable`), `backend/src/auth/auth.service.ts`
-(`twoFactorEnable`, `twoFactorVerifyEnable`), `backend/src/email/email.service.ts`,
+(`twoFactorEnable`, `verifyOtp`, `twoFactorVerifyEnable`), `backend/src/email/email.service.ts`,
 Prisma model `TwoFactorOtp`.
 
 The dialog is a two-step form driven by one boolean, `isOtpSend`, which
@@ -368,9 +576,9 @@ sequenceDiagram
     F->>F: dialog opens (isOtpSend reset to false on open)
     U->>F: clicks "Send OTP"
     F->>T: dispatch(twoFactorGenerateOtp())
-    T->>C: GET /auth/2fa-generate-otp (Bearer access token)
-    C->>S: authService.twoFactorEnable(userId)
-    S->>P: generate 6-digit OTP, bcrypt.hash it, INSERT TwoFactorOtp (expiresAt = now + 5min)
+    T->>C: POST /auth/2fa-generate-otp (Bearer access token, no body)
+    C->>S: authService.twoFactorEnable(userId) (purpose ENABLE_TOGGLE)
+    S->>P: generate 6-digit OTP, bcrypt.hash it, expire any still-live OTP of the same purpose, INSERT TwoFactorOtp (expiresAt = now + 5min)
     S->>E: sendOtp2FAuser(fullName, email, otp, "5min")
     E-->>S: throws InternalServerErrorException if Resend fails
     S-->>C: { success: true, message: "Otp send successfully" }
@@ -380,10 +588,10 @@ sequenceDiagram
     F->>T: dispatch(verifyEnableDisableTwoFactor(otp))
     T->>C: POST /auth/2fa-verify-enable { otp }
     C->>S: authService.twoFactorVerifyEnable(userId, otp)
-    S->>P: find latest un-verified, non-expired TwoFactorOtp for user
+    S->>P: find latest un-verified, non-expired ENABLE_TOGGLE TwoFactorOtp for user
     S->>S: bcrypt.compare(otp, otpData.otpHash)
     alt otp wrong
-        S->>P: increment attempts (max 5, then "Otp attempts limit exceeded")
+        S->>P: increment attempts (max 5, then 400 "Too many otp attempts")
         S-->>C: 400 "Invalid Otp"
     else otp correct
         S->>P: mark otp verifiedAt = now
@@ -393,6 +601,46 @@ sequenceDiagram
     C-->>F: 200 OK
     F->>F: setIsOpen(false) -> dialog closes, Redux user.twoFactorEnabled updated
 ```
+
+**On the wire — step 1, "Send OTP"** (Network → `2fa-generate-otp`). The request has
+**no body** (the server already knows who you are from the `Authorization` header),
+so DevTools shows no Payload tab — look at **Headers** instead:
+
+```http
+POST http://localhost:4000/auth/2fa-generate-otp
+Authorization: Bearer <accessToken>
+```
+
+Preview:
+
+```json
+{ "success": true, "message": "Otp send successfully" }
+```
+
+The code is deliberately **not** in the response — it only goes to the user's
+e-mail. The route is rate-limited (`@Throttle`, 5 per minute).
+
+**On the wire — step 2, "Verify OTP"** (Network → `2fa-verify-enable` → Payload):
+
+```http
+POST http://localhost:4000/auth/2fa-verify-enable
+Authorization: Bearer <accessToken>
+Content-Type: application/json
+
+{ "otp": "123456" }
+```
+
+Preview (disabling; when enabling it is `"Two-factor enabled"` / `true`):
+
+```json
+{
+  "success": true,
+  "message": "Two-factor disabled",
+  "data": { "twoFactorEnabled": false }
+}
+```
+
+Note that the request never says "enable" or "disable" — see the toggle below.
 
 Key implementation details:
 
@@ -408,7 +656,13 @@ Key implementation details:
   It expires after 5 minutes (`expiresAt`).
 - **Brute-force protection.** Each wrong attempt increments `attempts` on the
   same OTP row; once `attempts >= 5` the OTP is rejected outright
-  (`"Otp attempts limit exceeded"`), even before hashing/comparing again.
+  (`"Too many otp attempts"`), even before hashing/comparing again. A missing or
+  expired code gives `"Otp expired or invalid"`.
+- **Codes are bound to a purpose.** The same generator and table serve both this
+  toggle (`ENABLE_TOGGLE`) and the login challenge (`LOGIN`, section 9a);
+  `verifyOtp` only accepts a code of the expected purpose, so one cannot be
+  replayed in the other flow. Requesting a new code also expires any still-live
+  code of the same purpose, so only the newest one is ever valid.
 - **Response always reflects the value that was actually persisted.**
   `twoFactorVerifyEnable` re-reads the updated row from the `prisma.user.update`
   call result (not the pre-toggle `user` object) before building the message
@@ -446,7 +700,7 @@ sequenceDiagram
     F->>F: client-side check: password === confirmPassword
     F->>T: dispatch(changePassword({ currentPassword, password }))
     T->>C: PUT /users/change-password (Bearer access token)
-    C->>S: usersService.changePassword(userId, dto)
+    C->>S: usersService.changePassword(userId, dto, currentSessionId)
     S->>P: findUnique(userId) -> existingUser
     S->>S: bcrypt.compare(dto.currentPassword, existingUser.passwordHash)
     alt current password wrong
@@ -454,14 +708,47 @@ sequenceDiagram
     else current password correct
         S->>S: bcrypt.hash(dto.password, 10)
         S->>P: UPDATE users SET password_hash = ...
+        S->>P: UPDATE user_sessions SET revoked_at = now() (every other live session of this user)
         S-->>C: { success: true, user, message: "Password changed successfully" }
     end
     C-->>F: response
     F->>F: on success, close dialog + toast; on failure, show inline error
 ```
 
+**On the wire** (Network → `change-password` → Payload):
+
+```http
+PUT http://localhost:4000/users/change-password
+Authorization: Bearer <accessToken>
+Content-Type: application/json
+
+{ "currentPassword": "<current password>", "password": "<new password>" }
+```
+
+Two fields only. The "Confirm password" input of the form is **not** sent — the
+browser compares it with the new password before the request is made
+(`ChangePasswordDto` accepts nothing else, and `forbidNonWhitelisted` would reject
+an extra field). The server additionally requires the new password to be 8–72
+characters long (72 is bcrypt's input limit).
+
+Preview:
+
+```json
+{
+  "success": true,
+  "message": "Password changed successfully",
+  "user": { "id": "<cuid>", "email": "user@example.com", "fullName": "Full Name", "…": "no passwordHash, no twoFactorSecret" }
+}
+```
+
 Key implementation details:
 
+- **Other sessions are signed out.** After the new hash is saved, every other
+  live `user_sessions` row of the user is marked `revokedAt = now()`
+  (`updateMany` with `id: { not: currentSessionId }`). Because `JwtStrategy`
+  re-checks the session row on every request, anyone still holding a stolen
+  token from another device is locked out immediately, while the session that
+  just changed the password stays signed in.
 - **`currentPassword` is mandatory and enforced on both sides.**
   `ChangePasswordDto.currentPassword` is `@IsNotEmpty()`, and the frontend
   form collects and sends it as a dedicated field/type
@@ -505,6 +792,32 @@ Files: `platform-admin/src/pages/dashboard/account/components/EditProfile.tsx`,
 - On success, the Redux slice replaces `state.auth.user` with the fresh
   profile (recomputing `avatarName` from the possibly-changed `fullName`/`email`).
 
+**On the wire** (Network → `me`, the `PUT` one → Payload; its name in the list is
+`me`, the same as `GET /auth/me`, so check the method):
+
+```http
+PUT http://localhost:4000/users/me
+Authorization: Bearer <accessToken>
+Content-Type: application/json
+
+{
+  "fullName": "Full Name",
+  "email": "user@example.com",
+  "phone": "<phone>",
+  "profileImage": "https://…"
+}
+```
+
+Exactly the four whitelisted fields, and no password. Preview:
+
+```json
+{
+  "success": true,
+  "message": "Updated successfully",
+  "user": { "id": "<cuid>", "email": "user@example.com", "fullName": "Full Name", "…": "the fresh profile" }
+}
+```
+
 ## 15. Related mechanism: silent token refresh
 
 Not part of the login form itself, but directly downstream of the tokens it
@@ -544,9 +857,18 @@ produces (`platform-admin/src/lib/axios.ts`):
 - **Generic 500 messages**: any unexpected/internal exception is never
   forwarded verbatim to the client, only logged server-side.
 - **2FA codes are hashed at rest** (`bcrypt`), short-lived (5 minutes), and
-  rate-limited (5 attempts per code) before being rejected outright.
+  rate-limited (5 attempts per code) before being rejected outright; the 2FA
+  endpoints are additionally throttled to 5 requests per minute.
+- **2FA is enforced at login, not just configured.** With 2FA on, `POST /auth/login`
+  issues no tokens at all — only a short-lived `twoFactorToken` signed with its own
+  secret — and the session is created only after the e-mailed code is verified.
+- **OTP codes are bound to a purpose** (`LOGIN` vs `ENABLE_TOGGLE`), so a code
+  issued for one action cannot be used for the other.
+- **The code never appears in an HTTP response**; it is delivered only by e-mail.
 - **Password changes require the current password**, so an attacker who only
   has a live session (not the password) cannot lock the real owner out.
+- **Password changes sign out every other session**, so a stolen token on another
+  device stops working the moment the owner changes the password.
 - **Password changes are isolated to one endpoint/DTO** — the general profile
   update path (`PUT /users/me`) cannot write `passwordHash` even in
   principle, since `UpdateUserDto` has no `password` field.
