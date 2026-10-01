@@ -126,6 +126,8 @@ const ResetPassword = () => {
               placeholder="••••••••"
               autoComplete="new-password"
               required
+              minLength={8}
+              maxLength={72}
               value={password}
               onChange={(e: ChangeEvent<HTMLInputElement, HTMLInputElement>) =>
                 setPassword(e.target.value)
@@ -142,6 +144,8 @@ const ResetPassword = () => {
               placeholder="••••••••"
               autoComplete="new-password"
               required
+              minLength={8}
+              maxLength={72}
               value={confirmPassword}
               onChange={(e: ChangeEvent<HTMLInputElement, HTMLInputElement>) =>
                 setConfirmPassword(e.target.value)

@@ -34,7 +34,7 @@ const VerifyForgotOtpPage = () => {
     string | Date | null | undefined
   >(otpCreatedAtLocation);
 
-  const { remainingSeconds, formattedTime, isExpired } = useOtpCountdown(
+  const { formattedTime, isExpired } = useOtpCountdown(
     otpCreatedAt,
     5,
   );
