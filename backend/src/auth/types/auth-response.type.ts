@@ -1,4 +1,4 @@
-import { UserType } from '../../generated/prisma/enums.js';
+import { UserType } from '../../generated/prisma/enums';
 
 export interface LoginContext {
   ipAddress?: string;

@@ -1,6 +1,6 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { UAParser } from 'ua-parser-js';
-import { UserAgentInfo } from '../types/user-agent.type.js';
+import { UserAgentInfo } from '../types/user-agent.type';
 
 export const ParseUserAgent = createParamDecorator(
   (date: unknown, context: ExecutionContext): UserAgentInfo => {

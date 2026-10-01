@@ -6,12 +6,12 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
-import { UsersService } from './users.service.js';
-import { UpdateUserDto } from './dto/update-user.dto.js';
-import { ChangePasswordDto } from './dto/change-password.dto.js';
-import type { AuthenticatedUser } from '../auth/types/jwt-payload.type.js';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
-import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import { UsersService } from './users.service';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import type { AuthenticatedUser } from '../auth/types/jwt-payload.type';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('users')
 export class UsersController {

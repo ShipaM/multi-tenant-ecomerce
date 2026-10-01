@@ -1,7 +1,7 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
-import { EmailService } from './email.service.js';
+import { EmailService } from './email.service';
 
 const sendMock = vi.fn();
 

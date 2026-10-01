@@ -7,7 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import type { ErrorBody } from '../types/error-response.type.js';
+import type { ErrorBody } from '../types/error-response.type';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
