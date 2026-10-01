@@ -8,17 +8,21 @@ frontend, all the way through the **backend** (NestJS + Prisma + PostgreSQL), fo
 2. Enabling / disabling two-factor authentication (email OTP)
 3. Changing your password
 4. Editing your profile
+5. Forgotten password: e-mail OTP → reset token → new password (section 14a)
+6. Active sessions: listing, revoking one, signing out all others, logout (section 14b)
 
 It reflects the current state of the code:
 
-- Frontend: `platform-admin/src/pages/auth/{LoginPage,Verify2FaOtpPage}.tsx`,
-  `pages/dashboard/account/components/{ChangePassword,TwoFactorAuthentication,EditProfile}.tsx`,
-  `store/auth/authSlice.ts`, `api/auth.ts`, `lib/axios.ts`, `lib/storage.ts`
+- Frontend: `platform-admin/src/pages/auth/{LoginPage,Verify2FaOtpPage,ForgotPasswordPage,VerifyForgotOtpPage,ResetPasswordPage}.tsx`,
+  `pages/dashboard/account/components/{ChangePassword,TwoFactorAuthentication,EditProfile,SessionsList}.tsx`,
+  `hooks/useOtpCountdown.ts`, `store/auth/authSlice.ts`, `api/auth.ts`,
+  `lib/axios.ts`, `lib/storage.ts`
 - Backend: `backend/src/auth/auth.controller.ts`, `auth.service.ts`,
-  `dto/{login-dto,two-factor.dto}.ts`, `strategies/jwt.strategy.ts`,
+  `dto/{login-dto,two-factor.dto,reset-password}.ts`, `strategies/jwt.strategy.ts`,
   `backend/src/common/guards/jwt-auth.guard.ts`,
+  `backend/src/common/decorators/user-agent.decorator.ts`,
   `backend/src/users/users.controller.ts`, `users.service.ts`,
-  `dto/{update-user,change-password}.dto.ts`,
+  `dto/{update-user,change-password,reset-forgotten-password}.dto.ts`,
   `backend/src/email/email.service.ts`,
   `backend/src/main.ts`, `backend/prisma/schema.prisma`
 
@@ -44,7 +48,17 @@ Quick reference of every endpoint covered here (base URL `http://localhost:4000`
 | `PUT /users/change-password` | Bearer access token | `{ currentPassword, password }` | 13 |
 | `PUT /users/me` | Bearer access token | `{ fullName, email, phone, profileImage }` | 14 |
 | `POST /auth/refresh` | public (refresh token in body) | `{ refreshToken }` | 15 |
-| `POST /auth/logout` | Bearer access token | none | — |
+| `POST /auth/logout` | Bearer access token | none | 14b |
+| `GET /auth/sessions` | Bearer access token | none | 14b |
+| `POST /auth/sessions/:id/revoke` | Bearer access token | none (id in the URL) | 14b |
+| `POST /auth/sessions/revoke-others` | Bearer access token | none | 14b |
+| `POST /auth/forgot-password` | public | `{ email }` | 14a |
+| `POST /auth/forgot-password/verify-otp` | public | `{ email, otp }` | 14a |
+| `POST /auth/reset-password` | public (proves identity with `resetToken`) | `{ resetToken, password }` | 14a |
+
+Rate limits (`@Throttle`, per client, per minute): `login` 10, `refresh` 20, and 5 each for
+the three `2fa-*` endpoints and the three password-reset endpoints. `/auth/me`,
+`/auth/logout`, the sessions endpoints and the `/users/*` endpoints have no limit of their own.
 
 ---
 
@@ -219,14 +233,17 @@ File: `backend/src/auth/auth.controller.ts`
 ```ts
 @Post('login')
 @HttpCode(HttpStatus.OK)
-login(@Body() loginDto: LoginDto, @Ip() ip: string, @Headers('user-agent') userAgent?: string)
+@Throttle({ default: { limit: 10, ttl: 60_000 } })
+login(@Body() loginDto: LoginDto, @Ip() ip: string, @ParseUserAgent() userAgent: UserAgentInfo)
 ```
 
-- Route is public (no `@UseGuards(JwtAuthGuard)`).
+- Route is public (no `@UseGuards(JwtAuthGuard)`), but throttled to 10 requests per minute.
 - Forces `200 OK` on success instead of Nest's default `201 Created` for `POST`.
-- Captures the caller's IP (`@Ip()`) and `User-Agent` header — passed down as
-  "login context" purely for the session record (device/IP metadata), not for
-  any authentication decision.
+- Captures the caller's IP (`@Ip()`) and the parsed `User-Agent`. The custom
+  `@ParseUserAgent()` decorator (`common/decorators/user-agent.decorator.ts`) runs the
+  raw header through `ua-parser-js`; the controller keeps only `device.model`,
+  `os.name` and `browser.name` and passes them down as the "login context" —
+  purely for the session record, not for any authentication decision.
 - Delegates everything to `AuthService.login(email, password, context)`.
 
 ## 7. `AuthService.login` — the actual authentication logic
@@ -296,7 +313,9 @@ async issueTokenPair(user, context) {
     data: {
       id: sessionId,
       userId: user.id,
-      deviceLabel: context.deviceLabel,        // User-Agent
+      device: context.device,                  // parsed User-Agent
+      os: context.os,
+      browser: context.browser,
       ipAddress: context.ipAddress,
       refreshTokenHash: this.hashRefreshToken(tokens.refreshToken),
       expiresAt: this.refreshTokenExpiresAt(tokens.refreshToken),
@@ -323,8 +342,10 @@ async issueTokenPair(user, context) {
   database leak does not hand out usable refresh tokens.
 - `expiresAt` is derived by decoding the refresh JWT's own `exp` claim, so the
   DB record's expiry always matches the token's real expiry.
-- One row is inserted into `user_sessions` (`ip_address`, `device_label` come
-  straight from the request's IP/User-Agent captured in the controller).
+- One row is inserted into `user_sessions` (`ip_address`, `device`, `os`, `browser`
+  come from the request's IP and parsed User-Agent captured in the controller; the
+  older free-text `device_label` column is no longer filled at login, it is only
+  overwritten by `refresh`).
 - The method returns `{ accessToken, refreshToken }`; `login()` adds
   `userType` and returns `{ accessToken, refreshToken, userType }` as the
   final HTTP response body.
@@ -707,7 +728,8 @@ sequenceDiagram
         S-->>C: 401 "Current password is incorrect"
     else current password correct
         S->>S: bcrypt.hash(dto.password, 10)
-        S->>P: UPDATE users SET password_hash = ...
+        Note over S,P: one $transaction:
+        S->>P: UPDATE users SET password_hash = ..., password_updated_at = now()
         S->>P: UPDATE user_sessions SET revoked_at = now() (every other live session of this user)
         S-->>C: { success: true, user, message: "Password changed successfully" }
     end
@@ -743,8 +765,10 @@ Preview:
 
 Key implementation details:
 
-- **Other sessions are signed out.** After the new hash is saved, every other
-  live `user_sessions` row of the user is marked `revokedAt = now()`
+- **Other sessions are signed out, atomically.** The new hash (plus
+  `passwordUpdatedAt = now()`) and the revocation run in one Prisma `$transaction`,
+  so a failure cannot leave the password changed with old sessions still alive.
+  Every other live `user_sessions` row of the user is marked `revokedAt = now()`
   (`updateMany` with `id: { not: currentSessionId }`). Because `JwtStrategy`
   re-checks the session row on every request, anyone still holding a stolen
   token from another device is locked out immediately, while the session that
@@ -818,6 +842,207 @@ Exactly the four whitelisted fields, and no password. Preview:
 }
 ```
 
+## 14a. Forgotten password — OTP, reset token, new password
+
+Files: `pages/auth/{ForgotPasswordPage,VerifyForgotOtpPage,ResetPasswordPage}.tsx`,
+`hooks/useOtpCountdown.ts`, `authSlice.ts` (`fetchForgotPassword`,
+`fetchForgotPasswordOtpVerify`, `resetForgottenPassword`), `auth.controller.ts`
+(`POST /auth/forgot-password`, `/auth/forgot-password/verify-otp`, `/auth/reset-password`),
+`auth.service.ts` (`forgotPassword`, `forgotPasswordOtpVerification`, `resetPassword`),
+`users.service.ts` (`resetForgottenPassword`), `email.service.ts` (`sendOtpForgotPassword`),
+Prisma model `PasswordResetOtp`, env `JWT_RESET_SECRET` / `JWT_RESET_EXPIRES_IN` (default `5m`).
+
+The user is signed out, so all three endpoints are **public**. Identity is carried
+step by step: e-mail address → e-mailed code → `resetToken`.
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant FP as ForgotPasswordPage
+    participant VO as VerifyForgotOtpPage
+    participant RP as ResetPasswordPage
+    participant C as AuthController
+    participant S as AuthService
+    participant P as Prisma / PostgreSQL
+    participant E as EmailService (Resend)
+
+    U->>FP: types e-mail, clicks "Send OTP"
+    FP->>C: POST /auth/forgot-password { email }
+    C->>S: forgotPassword(email)
+    S->>P: findUnique(email)
+    opt user exists
+        S->>P: INSERT PasswordResetOtp (bcrypt hash, expires in 5 min, attempts 0)
+        S->>E: send the 6-digit code
+    end
+    S-->>FP: 200 { success, message, data: { createdAt } } (same shape for unknown e-mails)
+    FP->>VO: navigate("/auth/forgot-password/otp", { email, createdAt })
+    U->>VO: types the code (countdown runs from createdAt + 5 min)
+    VO->>C: POST /auth/forgot-password/verify-otp { email, otp }
+    C->>S: forgotPasswordOtpVerification(email, otp)
+    S->>P: newest OTP with consumedAt null and expiresAt in the future
+    S->>S: attempts < 5, bcrypt.compare(otp, codeHash)
+    S->>P: consumedAt = now()
+    S->>S: sign { userId, passwordVersion } with JWT_RESET_SECRET (5 min) = resetToken
+    S-->>VO: 200 { success, message, data: { resetToken } }
+    VO->>RP: navigate("/auth/reset-password", { email, resetToken }, replace)
+    U->>RP: new password + confirmation (compared in the browser only)
+    RP->>C: POST /auth/reset-password { resetToken, password }
+    C->>S: resetPassword(resetToken, password)
+    S->>S: verify resetToken signature + expiry (else 400 Session is Expired)
+    S->>P: $transaction: UPDATE users ... WHERE password_updated_at = token.passwordVersion (0 rows = replay, 400)
+    S->>P: same transaction: new password_hash + password_updated_at, revoke ALL live sessions
+    S-->>RP: 200 { success, user, message: "Password changed successfully" }
+    RP->>RP: "Password Updated" screen -> link back to /auth/login
+```
+
+**On the wire** — Network → `forgot-password` → Payload / Preview:
+
+```http
+POST http://localhost:4000/auth/forgot-password
+Content-Type: application/json
+
+{ "email": "user@example.com" }
+```
+
+```json
+{ "success": true, "message": "Otp send to your email successfully", "data": { "createdAt": "<ISO timestamp>" } }
+```
+
+Network → `verify-otp` → Payload / Preview (the code arrives only by e-mail):
+
+```http
+POST http://localhost:4000/auth/forgot-password/verify-otp
+Content-Type: application/json
+
+{ "email": "user@example.com", "otp": "123456" }
+```
+
+```json
+{ "success": true, "message": "Otp verify successfully", "data": { "resetToken": "<JWT signed with JWT_RESET_SECRET, payload { userId }, 5 min>" } }
+```
+
+Network → `reset-password` → Payload / Preview:
+
+```http
+POST http://localhost:4000/auth/reset-password
+Content-Type: application/json
+
+{ "resetToken": "<JWT from the previous step>", "password": "<new password>" }
+```
+
+```json
+{ "success": true, "message": "Password changed successfully", "user": { "id": "<cuid>", "…": "no passwordHash, no twoFactorSecret" } }
+```
+
+Key implementation details:
+
+- **No user enumeration by message.** `forgotPassword` answers `200 success` with a
+  `createdAt` even for an e-mail that is not registered (it just does not create a row or
+  send a mail), and the verify step answers `Otp does not match` for an unknown e-mail.
+  The timing is *not* equalized, though: a real account pays for a bcrypt hash and a
+  Resend call, an unknown one does not.
+- **Own table, own secret.** Reset codes live in `PasswordResetOtp` (`codeHash`,
+  `expiresAt`, `attempts`, `consumedAt`), separate from `TwoFactorOtp`, so a 2FA code
+  can never be used here or vice versa. The `resetToken` is signed with
+  `JWT_RESET_SECRET`, distinct from the access, refresh and 2FA secrets.
+- **Same OTP rules as 2FA**: 6 digits from `randomInt`, bcrypt-hashed at rest, valid
+  5 minutes, at most 5 wrong attempts per code, plus the 5-per-minute throttle.
+  Unlike the 2FA flow, requesting a new code does **not** expire the older one;
+  verification simply checks the newest live code.
+- **The code is consumed on success** (`consumedAt`), so it cannot be verified twice.
+- **Every session is signed out.** `resetForgottenPassword` has no notion of a current
+  session, so its `updateMany` revokes all
+  of the user's live sessions — nobody is logged in during a reset, and a stolen
+  refresh token stops working. Password hash, `passwordUpdatedAt` and the revocation
+  are written in a single `$transaction`, as in section 13.
+- **Frontend state lives only in router state.** The e-mail, `createdAt` and
+  `resetToken` are passed with `navigate(..., { state })`; nothing is stored in
+  `localStorage`. Each page bounces back to `/auth/forgot-password` when the state is
+  missing (e.g. after a page reload). `useOtpCountdown` turns `createdAt` into a
+  `mm:ss` countdown and shows a "Resend Otp" button once it reaches zero;
+  "Resend" calls `forgot-password` again and restarts the timer with the new `createdAt`.
+- The Axios interceptor's public-path list only contains `/auth/login` and
+  `/auth/refresh`, so if an old access token is still in `localStorage` it is attached
+  to these public calls too. The backend ignores it.
+
+Hardening of this flow (all covered by unit tests):
+
+- **The `resetToken` is single-use.** It carries `{ userId, passwordVersion }`, where
+  `passwordVersion` is `users.password_updated_at` (epoch ms) at the moment the token was
+  issued. `resetForgottenPassword` runs an `updateMany` whose `where` requires
+  `passwordUpdatedAt` to still equal that value; a successful reset moves the column, so a
+  replay (or a second concurrent request) matches **zero rows** and is answered with
+  `400 Session is Expired` before any session is touched. No extra table or migration is
+  needed, and a token is also void if the password was changed by any other route after
+  the code was verified.
+- **An invalid or expired `resetToken` is a clean `400`.** `resetPassword` wraps
+  `jwtService.verifyAsync` in a `try/catch` and answers `400 Session is Expired`, the same
+  message as the 2FA login step, instead of letting the JWT error become a `500`.
+- **The password length rule is enforced at the endpoint.** `ResetPasswordDto.password`
+  is `@MinLength(8) @MaxLength(72)` (72 is bcrypt's input limit) and `resetToken` is
+  `@IsNotEmpty()`, so a bad request is rejected by the `ValidationPipe` before the
+  service runs (`400` with a message such as
+  `password must be longer than or equal to 8 characters`). The reset form adds the same
+  `minLength`/`maxLength` as native input attributes.
+
+Remaining gap (a policy decision, not a bug):
+
+| Gap | Effect |
+|---|---|
+| 2FA is not required to reset a password: the flow only needs access to the mailbox | an attacker with the mailbox bypasses the second factor |
+
+## 14b. Active sessions and logout
+
+Files: `pages/dashboard/account/components/SessionsList.tsx`, `authSlice.ts`
+(`fetchSessionsList`, `revokeSession`, `revokeOtherSessions`, `fetchLogout`),
+`auth.controller.ts` (`GET /auth/sessions`, `POST /auth/sessions/:id/revoke`,
+`POST /auth/sessions/revoke-others`, `POST /auth/logout`), `auth.service.ts`
+(`listSessions`, `revokeSession`, `revokeOtherSessions`, `logout`), Prisma model `UserSession`.
+
+All four routes sit behind `JwtAuthGuard` and act only on the caller's own sessions.
+
+**On the wire** — Network → `sessions` → Preview (no body; `Authorization: Bearer …` in Headers):
+
+```json
+[
+  {
+    "sessionId": "<cuid>",
+    "isCurrent": true,
+    "os": "Windows",
+    "browser": "Chrome",
+    "device": null,
+    "deviceLabel": null,
+    "ipAddress": "::1",
+    "createdAt": "<ISO timestamp>",
+    "lastActiveAt": "<ISO timestamp>",
+    "expiresAt": "<ISO timestamp>"
+  }
+]
+```
+
+- **Listing.** `listSessions` returns the user's rows with `revokedAt: null`, newest
+  `lastActiveAt` first. The controller maps them to the shape above and computes
+  `isCurrent` by comparing each id with `sessionId` from the access token (`sid`).
+  The list does not filter on `expiresAt`, so a session that expired but was never
+  revoked still shows up. `device` is only the device *model*, so it is `null` on desktop browsers.
+- **What "last active" means.** `lastActiveAt` is written by `POST /auth/refresh`
+  (together with the fresh IP/device/OS/browser), not on every request, so it moves at
+  the pace of access-token renewals.
+- **Revoke one.** `POST /auth/sessions/:id/revoke` sets `revokedAt = now()`; an id that
+  does not exist or belongs to someone else gives `400 Session not found`. The
+  frontend hides the button on the current device (badge "This device") and asks for
+  confirmation in a dialog; on success it shows a toast and reloads the list.
+- **Revoke all others.** `POST /auth/sessions/revoke-others` revokes every live session
+  except the current one (`NOT: { id: currentSessionId }`).
+- **Logout.** `POST /auth/logout` revokes only the current session
+  (`updateMany` with `revokedAt: null`, so repeating it is harmless).
+- **Effect is immediate.** `JwtStrategy.validate` re-reads the session row on every
+  request, so a revoked device's still-unexpired access token gets `401` on its next
+  call, and its refresh token is rejected by `refresh` (section 15).
+- **`fetchMe` and `401`.** The frontend clears the stored tokens after `/auth/me` only
+  when the answer is a real `401` (session revoked or expired); a network error or a
+  `5xx` keeps the tokens so a temporary outage does not log the user out.
+
 ## 15. Related mechanism: silent token refresh
 
 Not part of the login form itself, but directly downstream of the tokens it
@@ -869,6 +1094,14 @@ produces (`platform-admin/src/lib/axios.ts`):
   has a live session (not the password) cannot lock the real owner out.
 - **Password changes sign out every other session**, so a stolen token on another
   device stops working the moment the owner changes the password.
+- **Forgotten-password recovery is gated twice**: an e-mailed one-time code
+  (hashed, 5 min, 5 attempts, consumed on use) buys a separate short-lived
+  `resetToken` signed with its own secret, and a completed reset signs out every session.
+- **Password change and reset are transactional**: the new hash and the session
+  revocation succeed or fail together.
+- **Users can see and kill their own sessions** (device, OS, browser, IP, last
+  activity), one by one or all except the current one.
+- **Login, refresh and every OTP/reset endpoint are throttled** per client (10, 20 and 5 per minute).
 - **Password changes are isolated to one endpoint/DTO** — the general profile
   update path (`PUT /users/me`) cannot write `passwordHash` even in
   principle, since `UpdateUserDto` has no `password` field.
