@@ -9,17 +9,18 @@ import { JwtService } from '@nestjs/jwt';
 import { createId } from '@paralleldrive/cuid2';
 import bcrypt from 'bcryptjs';
 import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
-import { User } from '../generated/prisma/client.js';
-import { TwoFactorOtpPurpose, UserStatus } from '../generated/prisma/enums.js';
-import { EnvironmentVariables, ExpiresIn } from '../config/env.validation.js';
-import { PrismaService } from '../prisma/prisma.service.js';
-import { PublicUser } from '../users/types/public-user.type.js';
-import { UsersService } from '../users/users.service.js';
+import { User } from '../generated/prisma/client';
+import { TwoFactorOtpPurpose, UserStatus } from '../generated/prisma/enums';
+import { EnvironmentVariables, ExpiresIn } from '../config/env.validation';
+import { PrismaService } from '../prisma/prisma.service';
+import { PublicUser } from '../users/types/public-user.type';
+import { UsersService } from '../users/users.service';
 import {
   JwtAccessPayload,
+  PasswordResetTokenPayload,
   RefreshTokenPayload,
   TwoFactorTokenPayload,
-} from './types/jwt-payload.type.js';
+} from './types/jwt-payload.type';
 import {
   LoginContext,
   LoginResult,
@@ -27,9 +28,9 @@ import {
   TwoFactorActionResponse,
   TwoFactorOtpTokenResult,
   TwoFactorVerifyEnableResponse,
-} from './types/auth-response.type.js';
-import { EmailService } from '../email/email.service.js';
-import { TwoFactorVerifyLoginOtpDto } from './dto/two-factor.dto.js';
+} from './types/auth-response.type';
+import { EmailService } from '../email/email.service';
+import { TwoFactorVerifyLoginOtpDto } from './dto/two-factor-verify-login-otp-dto';
 
 const REFRESH_TOKEN_HASH_LABEL = 'refresh-token:';
 // Prevents email enumeration by keeping bcrypt response time consistent.
@@ -543,7 +544,11 @@ export class AuthService {
     }
 
     const passwordResetOtp = await this.prisma.passwordResetOtp.findFirst({
-      where: { userId: user.id, consumedAt: null, expiresAt: { gt: new Date() } },
+      where: {
+        userId: user.id,
+        consumedAt: null,
+        expiresAt: { gt: new Date() },
+      },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -570,7 +575,10 @@ export class AuthService {
       data: { consumedAt: new Date() },
     });
 
-    const resetTokenPayload = { userId: user.id };
+    const resetTokenPayload: PasswordResetTokenPayload = {
+      userId: user.id,
+      passwordVersion: user.passwordUpdatedAt.getTime(),
+    };
 
     const resetToken = await this.jwtService.signAsync(resetTokenPayload, {
       secret: this.config.getOrThrow<string>('JWT_RESET_SECRET'),
@@ -586,22 +594,23 @@ export class AuthService {
   }
 
   async resetPassword(token: string, password: string) {
-    const decode = await this.jwtService.verifyAsync<RefreshTokenPayload>(
-      token,
-      {
-        secret: this.config.getOrThrow<string>('JWT_RESET_SECRET'),
-      },
-    );
+    let decode: PasswordResetTokenPayload;
 
-    if (!decode) {
-      throw new BadRequestException('Session will be expired');
+    // verifyAsync throws on a bad signature or an expired token; without this
+    // catch that would surface as a 500 instead of a clean 400.
+    try {
+      decode = await this.jwtService.verifyAsync<PasswordResetTokenPayload>(
+        token,
+        { secret: this.config.getOrThrow<string>('JWT_RESET_SECRET') },
+      );
+    } catch {
+      throw new BadRequestException('Session is Expired');
     }
 
-    const responseChangePassword =
-      await this.usersService.resetForgottenPassword(decode.userId, {
-        password: password,
-      });
-
-    return responseChangePassword;
+    return this.usersService.resetForgottenPassword(
+      decode.userId,
+      { password },
+      decode.passwordVersion,
+    );
   }
 }

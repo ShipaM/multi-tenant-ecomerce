@@ -4,13 +4,13 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Prisma } from '../generated/prisma/client.js';
-import { PrismaService } from '../prisma/prisma.service.js';
-import { UpdateUserDto } from './dto/update-user.dto.js';
-import { ChangePasswordDto } from './dto/change-password.dto.js';
-import { UpdateUserResponse } from './types/public-user.type.js';
+import { Prisma } from '../generated/prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateUserResponse } from './types/public-user.type';
 import bcrypt from 'bcryptjs';
-import { ResetForgottenPasswordDto } from './dto/reset-forgotten-password.dto.js';
+import { ResetForgottenPasswordDto } from './dto/reset-forgotten-password.dto';
 
 @Injectable()
 export class UsersService {
@@ -97,39 +97,40 @@ export class UsersService {
     return { user, message: 'Password changed successfully', success: true };
   }
 
+  // `expectedPasswordVersion` comes from the reset token. The password is only
+  // replaced while users.password_updated_at still equals it, so the token works
+  // exactly once (a replay or a concurrent second request updates zero rows).
   async resetForgottenPassword(
     userId: string,
     dto: ResetForgottenPasswordDto,
-    currentSessionId?: string,
+    expectedPasswordVersion: number,
   ) {
-    const existingUser = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!existingUser) throw new BadRequestException('Invalid user');
-
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
     const user = await this.prisma.$transaction(async (tx) => {
-      const updatedUser = await tx.user.update({
-        where: { id: userId },
+      const claimed = await tx.user.updateMany({
+        where: {
+          id: userId,
+          passwordUpdatedAt: new Date(expectedPasswordVersion),
+        },
         data: { passwordHash, passwordUpdatedAt: new Date() },
-        omit: { passwordHash: true, twoFactorSecret: true },
       });
 
-      // A changed password should invalidate any other session an attacker
-      // (or a stolen refresh token) might already be holding, without
-      // signing the requester themselves out of the session they just used.
+      if (claimed.count === 0) {
+        throw new BadRequestException('Session is Expired');
+      }
+
+      // Nobody is signed in during a reset, so every open session is revoked:
+      // a stolen refresh token must stop working too.
       await tx.userSession.updateMany({
-        where: {
-          userId,
-          revokedAt: null,
-          ...(currentSessionId ? { id: { not: currentSessionId } } : {}),
-        },
+        where: { userId, revokedAt: null },
         data: { revokedAt: new Date() },
       });
 
-      return updatedUser;
+      return tx.user.findUniqueOrThrow({
+        where: { id: userId },
+        omit: { passwordHash: true, twoFactorSecret: true },
+      });
     });
 
     return { user, message: 'Password changed successfully', success: true };

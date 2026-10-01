@@ -1,10 +1,13 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class ResetPasswordDto {
   @IsString()
-  resetToken: string;
-
-  @IsString()
   @IsNotEmpty()
-  password: string;
+  resetToken!: string;
+
+  // Same rule as ChangePasswordDto: 72 is bcrypt's input limit.
+  @IsString()
+  @MinLength(8)
+  @MaxLength(72)
+  password!: string;
 }

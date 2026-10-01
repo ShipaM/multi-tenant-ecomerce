@@ -1,7 +1,11 @@
 import { IsNotEmpty, IsString } from 'class-validator';
 
-export class TwoFactorDto {
+export class TwoFactorVerifyLoginOtpDto {
   @IsString()
   @IsNotEmpty()
   otp: string;
+
+  @IsString()
+  @IsNotEmpty()
+  twoFactorToken: string;
 }

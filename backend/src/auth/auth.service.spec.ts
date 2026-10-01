@@ -11,11 +11,11 @@ import {
   TwoFactorOtpPurpose,
   UserStatus,
   UserType,
-} from '../generated/prisma/enums.js';
-import { PrismaService } from '../prisma/prisma.service.js';
-import { UsersService } from '../users/users.service.js';
-import { EmailService } from '../email/email.service.js';
-import { AuthService } from './auth.service.js';
+} from '../generated/prisma/enums';
+import { PrismaService } from '../prisma/prisma.service';
+import { UsersService } from '../users/users.service';
+import { EmailService } from '../email/email.service';
+import { AuthService } from './auth.service';
 
 const SHARED_PREFIX = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${'q'.repeat(140)}.`;
 const TOKEN_A = `${SHARED_PREFIX}AAAAsignature-of-the-first-token`;
@@ -28,6 +28,8 @@ const env: Record<string, string> = {
   JWT_REFRESH_EXPIRES_IN: '30d',
   JWT_2FA_SECRET: 't'.repeat(32),
   JWT_2FA_EXPIRES_IN: '15m',
+  JWT_RESET_SECRET: 'x'.repeat(32),
+  JWT_RESET_EXPIRES_IN: '5m',
 };
 
 const user = {
@@ -46,7 +48,10 @@ const OTP_HASH = bcrypt.hashSync(CORRECT_OTP, 10);
 describe('AuthService', () => {
   let service: AuthService;
 
-  const usersService = { findByEmail: vi.fn() };
+  const usersService = {
+    findByEmail: vi.fn(),
+    resetForgottenPassword: vi.fn(),
+  };
   const prisma = {
     userSession: {
       create: vi.fn(),
@@ -58,6 +63,7 @@ describe('AuthService', () => {
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    passwordResetOtp: { findFirst: vi.fn(), update: vi.fn() },
     twoFactorOtp: {
       create: vi.fn(),
       findFirst: vi.fn(),
@@ -202,12 +208,26 @@ describe('AuthService', () => {
   });
 
   it('revokes only sessions that are still open', async () => {
-    await service.logout('s1');
+    prisma.userSession.findUnique.mockResolvedValue({ id: 's1', userId: 'u1' });
+
+    await service.logout('u1', 's1');
 
     expect(prisma.userSession.updateMany).toHaveBeenCalledWith({
       where: { id: 's1', revokedAt: null },
       data: { revokedAt: expect.any(Date) },
     });
+  });
+
+  it('refuses to revoke a session that belongs to another user', async () => {
+    prisma.userSession.findUnique.mockResolvedValue({
+      id: 's1',
+      userId: 'someone-else',
+    });
+
+    await expect(service.logout('u1', 's1')).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(prisma.userSession.updateMany).not.toHaveBeenCalled();
   });
 
   describe('two-factor OTP flows', () => {
@@ -327,6 +347,56 @@ describe('AuthService', () => {
         service.twoFactorVerifyLoginOtp('a-valid-2fa-token', CORRECT_OTP),
       ).rejects.toThrow(ForbiddenException);
       expect(prisma.twoFactorOtp.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('password reset flow', () => {
+    const passwordUpdatedAt = new Date('2026-09-29T10:00:00.000Z');
+
+    it('binds the reset token to the password version it was issued against', async () => {
+      prisma.user.findUnique.mockResolvedValue({ ...user, passwordUpdatedAt });
+      prisma.passwordResetOtp.findFirst.mockResolvedValue({
+        id: 'o1',
+        codeHash: OTP_HASH,
+        attempts: 0,
+      });
+      jwtService.signAsync.mockResolvedValue('reset-token');
+
+      const result = await service.forgotPasswordOtpVerification(
+        'a@b.com',
+        CORRECT_OTP,
+      );
+
+      expect(jwtService.signAsync).toHaveBeenCalledWith(
+        { userId: 'u1', passwordVersion: passwordUpdatedAt.getTime() },
+        expect.objectContaining({ secret: env.JWT_RESET_SECRET }),
+      );
+      expect(result.data.resetToken).toBe('reset-token');
+    });
+
+    it('rejects an expired or tampered reset token as a clean 400 instead of crashing', async () => {
+      jwtService.verifyAsync.mockRejectedValue(new Error('jwt expired'));
+
+      await expect(
+        service.resetPassword('an-expired-token', 'new-password'),
+      ).rejects.toThrow(BadRequestException);
+      expect(usersService.resetForgottenPassword).not.toHaveBeenCalled();
+    });
+
+    it('hands the password version from the token to the users service', async () => {
+      jwtService.verifyAsync.mockResolvedValue({
+        userId: 'u1',
+        passwordVersion: 1_790_000_000_000,
+      });
+      usersService.resetForgottenPassword.mockResolvedValue({ success: true });
+
+      await service.resetPassword('a-valid-reset-token', 'new-password');
+
+      expect(usersService.resetForgottenPassword).toHaveBeenCalledWith(
+        'u1',
+        { password: 'new-password' },
+        1_790_000_000_000,
+      );
     });
   });
 });

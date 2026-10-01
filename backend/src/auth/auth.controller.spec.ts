@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AuthController } from './auth.controller.js';
-import { AuthService } from './auth.service.js';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
-import type { AuthenticatedUser } from './types/jwt-payload.type.js';
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import type { AuthenticatedUser } from './types/jwt-payload.type';
+import type { UserAgentInfo } from '../common/types/user-agent.type';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -18,6 +19,17 @@ describe('AuthController', () => {
     userType: 'PLATFORM_ADMIN',
     sessionId: 's1',
   };
+
+  // What the @ParseUserAgent() decorator hands the controller (a parsed User-Agent).
+  const userAgent = (overrides: Partial<UserAgentInfo> = {}): UserAgentInfo => ({
+    ua: 'Mozilla/5.0',
+    browser: { name: 'Chrome' },
+    cpu: {},
+    device: { model: 'iPhone' },
+    engine: {},
+    os: { name: 'iOS' },
+    ...overrides,
+  });
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -41,27 +53,33 @@ describe('AuthController', () => {
     controller.login(
       { email: 'a@b.com', password: 'secret' },
       '10.0.0.1',
-      'curl/8',
+      userAgent(),
     );
 
     expect(authService.login).toHaveBeenCalledWith('a@b.com', 'secret', {
       ipAddress: '10.0.0.1',
-      deviceLabel: 'curl/8',
+      device: 'iPhone',
+      os: 'iOS',
+      browser: 'Chrome',
     });
   });
 
   it('forwards the refresh token together with the new request context', () => {
-    controller.refresh({ refreshToken: 'a.b.c' }, '10.0.0.2', 'curl/9');
+    controller.refresh({ refreshToken: 'a.b.c' }, '10.0.0.2', userAgent());
 
     expect(authService.refresh).toHaveBeenCalledWith('a.b.c', {
       ipAddress: '10.0.0.2',
-      deviceLabel: 'curl/9',
+      device: 'iPhone',
+      os: 'iOS',
+      browser: 'Chrome',
     });
   });
 
-  it('revokes the session from the token rather than one named by the caller', () => {
-    controller.logout(currentUser);
+  it('revokes the session from the token rather than one named by the caller', async () => {
+    await expect(controller.logout(currentUser)).resolves.toEqual({
+      success: true,
+    });
 
-    expect(authService.logout).toHaveBeenCalledWith('s1');
+    expect(authService.logout).toHaveBeenCalledWith('u1', 's1');
   });
 });

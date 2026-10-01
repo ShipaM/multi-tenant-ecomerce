@@ -1,13 +1,18 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import bcrypt from 'bcryptjs';
-import { PrismaService } from '../prisma/prisma.service.js';
-import { UsersService } from './users.service.js';
+import { PrismaService } from '../prisma/prisma.service';
+import { UsersService } from './users.service';
 
 describe('UsersService', () => {
   let service: UsersService;
   const prisma = {
-    user: { findUnique: vi.fn(), update: vi.fn() },
+    user: {
+      findUnique: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
     userSession: { updateMany: vi.fn() },
     $transaction: vi.fn((callback: (tx: typeof prisma) => unknown) =>
       callback(prisma),
@@ -92,6 +97,48 @@ describe('UsersService', () => {
         where: { userId: 'u1', revokedAt: null },
         data: { revokedAt: expect.any(Date) },
       });
+    });
+  });
+
+  describe('resetForgottenPassword', () => {
+    const passwordVersion = 1_790_000_000_000;
+
+    it('replaces the password only while the reset token is still current and revokes every open session', async () => {
+      prisma.user.updateMany.mockResolvedValue({ count: 1 });
+      prisma.user.findUniqueOrThrow.mockResolvedValue({ id: 'u1' });
+
+      const result = await service.resetForgottenPassword(
+        'u1',
+        { password: 'new-password' },
+        passwordVersion,
+      );
+
+      expect(prisma.user.updateMany).toHaveBeenCalledWith({
+        where: { id: 'u1', passwordUpdatedAt: new Date(passwordVersion) },
+        data: {
+          passwordHash: expect.any(String),
+          passwordUpdatedAt: expect.any(Date),
+        },
+      });
+      expect(prisma.userSession.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'u1', revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(result).toMatchObject({ success: true, user: { id: 'u1' } });
+    });
+
+    it('rejects a replayed reset token without touching the password or the sessions', async () => {
+      // The first redemption moved password_updated_at, so nothing matches now.
+      prisma.user.updateMany.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.resetForgottenPassword(
+          'u1',
+          { password: 'another-password' },
+          passwordVersion,
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.userSession.updateMany).not.toHaveBeenCalled();
     });
   });
 });

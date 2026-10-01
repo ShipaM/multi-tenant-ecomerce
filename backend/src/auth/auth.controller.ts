@@ -11,19 +11,20 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { AuthService } from './auth.service.js';
-import { ForgotPasswordDto, LoginDto } from './dto/login-dto.js';
-import { RefreshTokenDto } from './dto/refresh-token.dto.js';
-import type { AuthenticatedUser } from './types/jwt-payload.type.js';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
-import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import { AuthService } from './auth.service';
 import {
+  ForgotPasswordDto,
+  LoginDto,
+  RefreshTokenDto,
+  ResetPasswordDto,
   TwoFactorDto,
   TwoFactorVerifyLoginOtpDto,
-} from './dto/two-factor.dto.js';
-import { ParseUserAgent } from '../common/decorators/user-agent.decorator.js';
-import type { UserAgentInfo } from '../common/types/user-agent.type.js';
-import { ResetPasswordDto } from './dto/reset-password.dto.js';
+} from './dto/index';
+import type { AuthenticatedUser } from './types/jwt-payload.type';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { ParseUserAgent } from '../common/decorators/user-agent.decorator';
+import type { UserAgentInfo } from '../common/types/user-agent.type';
 
 @Controller('auth')
 export class AuthController {
