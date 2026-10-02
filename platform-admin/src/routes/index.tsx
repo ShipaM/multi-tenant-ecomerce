@@ -15,7 +15,7 @@ const Verify2FaOtpPage = lazy(routeModules.verify2Fa);
 const ResetPasswordPage = lazy(routeModules.resetPassword);
 const DashboardPage = lazy(routeModules.dashboard);
 const SellersPage = lazy(routeModules.sellers);
-const CommisionPayoutsPage = lazy(routeModules.commisionPayouts);
+const CommissionPayoutsPage = lazy(routeModules.commissionPayouts);
 const GlobalCatalogPage = lazy(routeModules.globalCatalog);
 const DeliveryNetworkPage = lazy(routeModules.deliveryNetwork);
 const CustomersPage = lazy(routeModules.customers);
@@ -45,7 +45,7 @@ export const AppRoutes = () => {
         <Route path="dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="sellers" element={<SellersPage />} />
-          <Route path="commision-payouts" element={<CommisionPayoutsPage />} />
+          <Route path="commission-payouts" element={<CommissionPayoutsPage />} />
           <Route path="global-catalog" element={<GlobalCatalogPage />} />
           <Route path="delivery-network" element={<DeliveryNetworkPage />} />
           <Route path="customers" element={<CustomersPage />} />

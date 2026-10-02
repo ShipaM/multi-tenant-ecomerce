@@ -80,7 +80,7 @@ export const fetchLogin = createAsyncThunk<
 
     return rejectWithValue("Could not Sign in: incomplete response");
   } catch (error) {
-    storage.clearStoradge();
+    storage.clearStorage();
     return rejectWithValue(getAxiosErrorMessage(error, "Could not Sign in"));
   }
 });
@@ -101,7 +101,7 @@ export const fetchMe = createAsyncThunk<
       isAxiosError(error) && error.response?.status === 401;
 
     if (unauthorized) {
-      storage.clearStoradge();
+      storage.clearStorage();
     }
 
     return rejectWithValue({
@@ -218,7 +218,7 @@ export const verify2FaLoginOtp = createAsyncThunk<
 
       return rejectWithValue("Could not Sign in: incomplete response");
     } catch (error) {
-      storage.clearStoradge();
+      storage.clearStorage();
       return rejectWithValue(getAxiosErrorMessage(error, "Could not Sign in"));
     }
   },
@@ -399,7 +399,7 @@ export const authSlice = createSlice({
         state.refreshToken = null;
         state.userType = "PLATFORM_ADMIN";
         state.error = null;
-        storage.clearStoradge();
+        storage.clearStorage();
       })
       .addCase(fetchLogout.rejected, (state, action) => {
         state.isLogoutLoading = false;
@@ -408,7 +408,7 @@ export const authSlice = createSlice({
         state.refreshToken = null;
         state.userType = "PLATFORM_ADMIN";
         state.error = action.payload ?? "Could not Sign out";
-        storage.clearStoradge();
+        storage.clearStorage();
       });
 
     builder

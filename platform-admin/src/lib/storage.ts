@@ -68,7 +68,7 @@ export const storage = {
     safeRemoveItem(field);
   },
 
-  clearStoradge() {
+  clearStorage() {
     safeClear();
   },
 };

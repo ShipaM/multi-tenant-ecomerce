@@ -7,8 +7,8 @@ export const routeModules = {
   resetPassword: () => import("@/pages/auth/ResetPasswordPage"),
   dashboard: () => import("@/pages/dashboard/DashboardPage"),
   sellers: () => import("@/pages/dashboard/sellers/SellersPage"),
-  commisionPayouts: () =>
-    import("@/pages/dashboard/commision-payouts/CommisionPayoutsPage"),
+  commissionPayouts: () =>
+    import("@/pages/dashboard/commission-payouts/CommissionPayoutsPage"),
   globalCatalog: () =>
     import("@/pages/dashboard/global-catalog/GlobalCatalogPage"),
   deliveryNetwork: () =>

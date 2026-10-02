@@ -1,5 +1,5 @@
-const CommisionPayoutsPage = () => {
-  return <div>CommisionPayoutsPage</div>;
+const CommissionPayoutsPage = () => {
+  return <div>CommissionPayoutsPage</div>;
 };
 
-export default CommisionPayoutsPage;
+export default CommissionPayoutsPage;

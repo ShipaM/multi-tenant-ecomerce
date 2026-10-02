@@ -391,7 +391,7 @@ return rejectWithValue("Could not Sign in: incomplete response");
 - Back in `LoginPage`, the `await ... .unwrap()` call resolves, and
   `navigate(redirectTo)` fires (or the 2FA navigation, section 9a).
 - If anything above throws (network error, 400, 403, malformed response), the
-  `catch` branch calls `storage.clearStoradge()` (wipes stale storage) and
+  `catch` branch calls `storage.clearStorage()` (wipes stale storage) and
   rejects with a human-readable message extracted by
   `getAxiosErrorMessage` — which reads `error.response.data.message` (a string
   or the first entry of the validation-error array) and falls back to a

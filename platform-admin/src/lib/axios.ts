@@ -80,7 +80,7 @@ Axios.interceptors.response.use(
     try {
       newAccessToken = await fetchRefreshToken();
     } catch (refreshError) {
-      storage.clearStoradge();
+      storage.clearStorage();
       window.location.href = "/auth/login";
       return Promise.reject(refreshError);
     }

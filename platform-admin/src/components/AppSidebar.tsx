@@ -54,10 +54,10 @@ const SIDEBAR_NAV_ITEMS: SidebarNavItem[] = [
     routemodule: "sellers",
   },
   {
-    label: "Commision & Payouts",
-    href: "/dashboard/commision-payouts",
+    label: "Commission & Payouts",
+    href: "/dashboard/commission-payouts",
     Icon: WalletIcon,
-    routemodule: "commisionPayouts",
+    routemodule: "commissionPayouts",
   },
   {
     label: "Global Catalog",
