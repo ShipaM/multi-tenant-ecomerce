@@ -176,6 +176,11 @@ describe('AuthService', () => {
       UnauthorizedException,
     );
     expect(prisma.userSession.update).not.toHaveBeenCalled();
+    // Reuse of a rotated-away token burns the whole session.
+    expect(prisma.userSession.updateMany).toHaveBeenCalledWith({
+      where: { id: 's1', revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
   });
 
   it('rotates the stored hash when the correct refresh token is presented', async () => {

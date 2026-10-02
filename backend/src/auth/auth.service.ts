@@ -181,8 +181,15 @@ export class AuthService {
     }
 
     // 4. Check that the provided token matches the hash stored in the session.
-    // This prevents an older or forged refresh token from being reused.
+    // A validly signed token that no longer matches was already rotated away,
+    // so it is being replayed: either a thief or the owner holds a stale copy.
+    // We cannot tell which, so the whole session is revoked (reuse detection)
+    // and the legitimate owner has to sign in again.
     if (!this.refreshTokenMatches(refreshToken, session.refreshTokenHash)) {
+      await this.prisma.userSession.updateMany({
+        where: { id: session.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -285,6 +292,7 @@ export class AuthService {
       where: {
         userId,
         revokedAt: null,
+        expiresAt: { gt: new Date() },
       },
       orderBy: {
         lastActiveAt: 'desc',
