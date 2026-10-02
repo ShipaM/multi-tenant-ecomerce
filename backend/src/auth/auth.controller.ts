@@ -14,6 +14,7 @@ import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import {
   ForgotPasswordDto,
+  VerifyForgotPasswordOtpDto,
   LoginDto,
   RefreshTokenDto,
   ResetPasswordDto,
@@ -167,8 +168,8 @@ export class AuthController {
   @Post('forgot-password/verify-otp')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  async forgotPasswordVerifyOtp(@Body() dto: ForgotPasswordDto) {
-    return this.authService.forgotPasswordOtpVerification(dto.email, dto.otp!);
+  async forgotPasswordVerifyOtp(@Body() dto: VerifyForgotPasswordOtpDto) {
+    return this.authService.forgotPasswordOtpVerification(dto.email, dto.otp);
   }
 
   @Post('reset-password')
