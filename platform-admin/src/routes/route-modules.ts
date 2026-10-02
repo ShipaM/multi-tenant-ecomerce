@@ -1,10 +1,11 @@
 export const routeModules = {
   login: () => import("@/pages/auth/login/LoginPage"),
   notFound: () => import("@/pages/errors/NotFoundPage"),
-  forgotPassword: () => import("@/pages/auth/forgot-pasword"),
+  forgotPassword: () =>
+    import("@/pages/auth/forgot-pasword/ForgotPasswordPage"),
   verifyOtp: () => import("@/pages/auth/VerifyForgotOtpPage"),
   verify2Fa: () => import("@/pages/auth/Verify2FaOtpPage"),
-  resetPassword: () => import("@/pages/auth/ResetPasswordPage"),
+  resetPassword: () => import("@/pages/auth/reset-password/ResetPasswordPage"),
   dashboard: () => import("@/pages/dashboard/DashboardPage"),
   sellers: () => import("@/pages/dashboard/sellers/SellersPage"),
   commissionPayouts: () =>

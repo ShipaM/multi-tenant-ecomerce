@@ -4,12 +4,10 @@ import type { LoginCredentials } from "./useLoginCredentials";
 
 type UseLoginValidationResult = {
   fieldErrors: LoginFieldErrors;
-  /** Validates all fields, stores the errors and returns whether the form is valid. */
   validate: () => boolean;
   clearFieldError: (field: keyof LoginCredentials) => void;
 };
 
-/** Owns the per-field error messages; validation runs on submit and an error clears when its field is edited. */
 export const useLoginValidation = (
   credentials: LoginCredentials,
 ): UseLoginValidationResult => {

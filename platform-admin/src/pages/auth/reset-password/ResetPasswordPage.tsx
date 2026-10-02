@@ -8,79 +8,39 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
-import { useAppDispatch } from "@/hooks/use-store";
-import { resetForgottenPassword } from "@/store/auth/thunks";
-import type { AuthNavigationState, ResetPasswordPayload } from "@/types";
 import { CheckCircle2 } from "lucide-react";
-import { useState, type SubmitEvent, type ChangeEvent, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router";
-import { toast } from "sonner";
+import {
+  useResetPasswordForm,
+  useResetPasswordSession,
+  useResetPasswordSubmit,
+  useResetPasswordValidation,
+} from "./hooks";
 
 const ResetPassword = () => {
-  const location = useLocation();
-  const navState = location.state as AuthNavigationState | null;
-  const dispatch = useAppDispatch();
+  const { email, resetToken } = useResetPasswordSession();
 
-  const email = navState?.email;
-  const resetToken = navState?.resetToken;
+  const {
+    password,
+    confirmPassword,
+    isMismatch,
+    onPasswordChange,
+    onConfirmPasswordChange,
+    resetForm,
+  } = useResetPasswordForm();
 
-  const navigate = useNavigate();
+  const { fieldErrors, validate, clearFieldError } =
+    useResetPasswordValidation(password, confirmPassword);
 
-  const [password, setPassword] = useState<string>("");
-  const [confirmPassword, setConfirmPassword] = useState<string>("");
+  const confirmError =
+    fieldErrors.confirmPassword ??
+    (isMismatch ? "Passwords don't match" : undefined);
 
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [isDone, setIsDone] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const misMatch = confirmPassword.length > 0 && password !== confirmPassword;
-
-  const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (misMatch) {
-      setError("Password and confirm password must be the same");
-      return;
-    }
-
-    if (!resetToken) {
-      setError("Session will be expired. Please try again.");
-      return;
-    }
-
-    setError(null);
-
-    setIsSubmitting(true);
-
-    const payload: ResetPasswordPayload = {
-      password,
-      resetToken,
-    };
-
-    try {
-      const response = await dispatch(
-        resetForgottenPassword(payload),
-      ).unwrap();
-
-      if (response.success) {
-        setIsDone(true);
-        setPassword("");
-        setConfirmPassword("");
-        setIsSubmitting(false);
-        toast.success(response.message || "Password reset successfully");
-      }
-    } catch (err) {
-      const message =
-        typeof err === "string" ? err : "Failed to reset password";
-      setError(message);
-      toast.error(message);
-      setIsSubmitting(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!email || !resetToken) navigate("/auth/forgot-password");
-  }, [email, resetToken, navigate]);
+  const { handleSubmit, isLoading, isDone, error } = useResetPasswordSubmit({
+    password,
+    resetToken,
+    validate,
+    onSuccess: resetForm,
+  });
 
   if (isDone) {
     return (
@@ -116,44 +76,44 @@ const ResetPassword = () => {
         )}
       </p>
 
-      <form className="mt-7" onSubmit={handleSubmit}>
+      <form className="mt-7" noValidate onSubmit={handleSubmit}>
         <FieldGroup>
-          <Field>
+          <Field data-invalid={!!fieldErrors.password}>
             <FieldLabel htmlFor="password">Password</FieldLabel>
             <PasswordInput
               id="password"
               className="h-11"
               placeholder="••••••••"
               autoComplete="new-password"
-              required
-              minLength={8}
               maxLength={72}
               value={password}
-              onChange={(e: ChangeEvent<HTMLInputElement, HTMLInputElement>) =>
-                setPassword(e.target.value)
-              }
-              disabled={isSubmitting}
+              aria-invalid={!!fieldErrors.password}
+              onChange={(e) => {
+                onPasswordChange(e);
+                clearFieldError("password");
+              }}
+              disabled={isLoading}
             />
+            <FieldError>{fieldErrors.password}</FieldError>
           </Field>
 
-          <Field>
+          <Field data-invalid={!!confirmError}>
             <FieldLabel htmlFor="confirm-password">Confirm Password</FieldLabel>
             <PasswordInput
               id="confirm-password"
               className="h-11"
               placeholder="••••••••"
               autoComplete="new-password"
-              required
-              minLength={8}
               maxLength={72}
               value={confirmPassword}
-              onChange={(e: ChangeEvent<HTMLInputElement, HTMLInputElement>) =>
-                setConfirmPassword(e.target.value)
-              }
-              disabled={isSubmitting}
+              aria-invalid={!!confirmError}
+              onChange={(e) => {
+                onConfirmPasswordChange(e);
+                clearFieldError("confirmPassword");
+              }}
+              disabled={isLoading}
             />
-
-            {misMatch && <FieldError>Passwords don't match</FieldError>}
+            <FieldError>{confirmError}</FieldError>
           </Field>
 
           {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
@@ -161,9 +121,9 @@ const ResetPassword = () => {
           <Button
             type="submit"
             className="mt-6 h-11 w-full"
-            disabled={isSubmitting}
+            disabled={isLoading}
           >
-            {isSubmitting ? (
+            {isLoading ? (
               <>
                 <Spinner className="size-4" />
                 Updating...

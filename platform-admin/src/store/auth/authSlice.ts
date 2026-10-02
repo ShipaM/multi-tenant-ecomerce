@@ -9,6 +9,7 @@ import {
   fetchLogout,
   fetchMe,
   fetchSessionsList,
+  resetForgottenPassword,
   twoFactorGenerateOtp,
   updateUser,
   verify2FaLoginOtp,
@@ -36,6 +37,7 @@ const initialState: AuthState = {
   sessions: [],
   isSessionsLoading: false,
   isForgotPasswordLoading: false,
+  isResetPasswordLoading: false,
 };
 
 export const authSlice = createSlice({
@@ -224,6 +226,17 @@ export const authSlice = createSlice({
       })
       .addCase(fetchForgotPassword.rejected, (state) => {
         state.isForgotPasswordLoading = false;
+      });
+
+    builder
+      .addCase(resetForgottenPassword.pending, (state) => {
+        state.isResetPasswordLoading = true;
+      })
+      .addCase(resetForgottenPassword.fulfilled, (state) => {
+        state.isResetPasswordLoading = false;
+      })
+      .addCase(resetForgottenPassword.rejected, (state) => {
+        state.isResetPasswordLoading = false;
       });
   },
 });
