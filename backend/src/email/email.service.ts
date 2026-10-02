@@ -6,6 +6,15 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 
+// User-controlled text must never reach the HTML body unescaped.
+const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
 @Injectable()
 export class EmailService {
   private readonly resend: Resend;
@@ -30,7 +39,7 @@ export class EmailService {
         to: toEmail,
         subject: 'Your Two-Factor Authentication (2FA) code',
         html: `
-        <p>Hello ${userName},</p>
+        <p>Hello ${escapeHtml(userName)},</p>
         <div style="font-family:sans-serif">
           <p>Your Two-Factor Authentication (2FA) code:</p>
           <h2 style="letter-spacing:4px">${otpCode}</h2>
@@ -57,7 +66,7 @@ export class EmailService {
         to: toEmail,
         subject: 'Your password reset code',
         html: `
-        <p>Hello ${userName},</p>
+        <p>Hello ${escapeHtml(userName)},</p>
         <div style="font-family:sans-serif">
           <p>Your password reset code:</p>
           <h2 style="letter-spacing:4px">${otpCode}</h2>
