@@ -6,6 +6,8 @@ import { UserStatus } from '../../generated/prisma/enums';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthenticatedUser, JwtAccessPayload } from '../types/jwt-payload.type';
 
+const LAST_ACTIVE_TOUCH_MS = 60_000;
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
@@ -39,6 +41,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // Only active users can access protected resources.
     if (session.user.status !== UserStatus.ACTIVE) {
       throw new UnauthorizedException('This account is not active');
+    }
+
+    // Keep "last active" accurate without a write on every request:
+    // touch the row at most once per interval, and don't block the request.
+    if (Date.now() - session.lastActiveAt.getTime() > LAST_ACTIVE_TOUCH_MS) {
+      void this.prisma.userSession
+        .updateMany({
+          where: { id: session.id, revokedAt: null },
+          data: { lastActiveAt: new Date() },
+        })
+        .catch(() => undefined);
     }
 
     // Return user data that will be available in the request.
