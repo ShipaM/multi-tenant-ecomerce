@@ -1,7 +1,7 @@
 export const routeModules = {
   login: () => import("@/pages/auth/login/LoginPage"),
   notFound: () => import("@/pages/errors/NotFoundPage"),
-  forgotPassword: () => import("@/pages/auth/ForgotPasswordPage"),
+  forgotPassword: () => import("@/pages/auth/forgot-pasword"),
   verifyOtp: () => import("@/pages/auth/VerifyForgotOtpPage"),
   verify2Fa: () => import("@/pages/auth/Verify2FaOtpPage"),
   resetPassword: () => import("@/pages/auth/ResetPasswordPage"),
