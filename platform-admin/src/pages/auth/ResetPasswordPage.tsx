@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { useAppDispatch } from "@/hooks/use-store";
-import { resetForgottenPassword } from "@/store/auth/authSlice";
+import { resetForgottenPassword } from "@/store/auth/thunks";
 import type { AuthNavigationState, ResetPasswordPayload } from "@/types";
 import { CheckCircle2 } from "lucide-react";
 import { useState, type SubmitEvent, type ChangeEvent, useEffect } from "react";

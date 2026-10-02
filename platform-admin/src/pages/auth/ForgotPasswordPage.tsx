@@ -4,7 +4,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useAppDispatch } from "@/hooks/use-store";
-import { fetchForgotPassword } from "@/store/auth/authSlice";
+import { fetchForgotPassword } from "@/store/auth/thunks";
 import { ArrowLeft } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
 import { useNavigate } from "react-router";

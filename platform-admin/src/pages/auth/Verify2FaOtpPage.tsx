@@ -7,7 +7,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { useAppDispatch, useAppSelector } from "@/hooks/use-store";
 import { isSafeRedirectPath } from "@/lib/redirect";
-import { verify2FaLoginOtp } from "@/store/auth/authSlice";
+import { verify2FaLoginOtp } from "@/store/auth/thunks";
 import {
   isCompleteLoginResponse,
   isTwoFactorRequiredResponse,

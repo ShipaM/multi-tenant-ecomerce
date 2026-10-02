@@ -14,7 +14,7 @@ import { useAppDispatch } from "@/hooks/use-store";
 import {
   fetchForgotPassword,
   fetchForgotPasswordOtpVerify,
-} from "@/store/auth/authSlice";
+} from "@/store/auth/thunks";
 import { toast } from "sonner";
 
 const VerifyForgotOtpPage = () => {

@@ -31,7 +31,7 @@ import { cn } from "cn";
 import type { RouteModuleKey } from "@/routes/route-modules";
 import { useAppDispatch, useAppSelector } from "@/hooks/use-store";
 import { UserAvatar } from "./UserAvatar";
-import { fetchLogout } from "@/store/auth/authSlice";
+import { fetchLogout } from "@/store/auth/thunks";
 
 type SidebarNavItem = {
   label: string;

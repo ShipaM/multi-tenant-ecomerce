@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { useAppDispatch, useAppSelector } from "@/hooks/use-store";
-import { updateUser } from "@/store/auth/authSlice";
+import { updateUser } from "@/store/auth/thunks";
 import type { User } from "@/types";
 import { type FC, useState, type ChangeEvent, type SubmitEvent } from "react";
 import { toast } from "sonner";

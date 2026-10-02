@@ -1,5 +1,5 @@
 import { useAppDispatch, useAppSelector } from "@/hooks/use-store";
-import { fetchMe } from "@/store/auth/authSlice";
+import { fetchMe } from "@/store/auth/thunks";
 import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 

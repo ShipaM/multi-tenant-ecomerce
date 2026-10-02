@@ -15,7 +15,7 @@ import {
   fetchSessionsList,
   revokeOtherSessions,
   revokeSession,
-} from "@/store/auth/authSlice";
+} from "@/store/auth/thunks";
 import moment from "moment";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";

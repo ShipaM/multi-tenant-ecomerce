@@ -2,7 +2,7 @@ import { PageTitle, PasswordInput, SubmitButton } from "@/components";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
 import { useAppSelector, useAppDispatch } from "@/hooks/use-store";
-import { changePassword } from "@/store/auth/authSlice";
+import { changePassword } from "@/store/auth/thunks";
 import { useState, type SubmitEvent } from "react";
 import { toast } from "sonner";
 
