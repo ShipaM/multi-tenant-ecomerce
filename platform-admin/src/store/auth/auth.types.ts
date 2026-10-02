@@ -20,4 +20,5 @@ export type AuthState = {
   twoFactorRequired: boolean;
   sessions: Session[];
   isSessionsLoading: boolean;
+  isForgotPasswordLoading: boolean;
 };

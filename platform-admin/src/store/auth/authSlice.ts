@@ -5,6 +5,7 @@ import { buildAvatarName } from "./auth.helpers";
 import {
   changePassword,
   fetchLogin,
+  fetchForgotPassword,
   fetchLogout,
   fetchMe,
   fetchSessionsList,
@@ -34,6 +35,7 @@ const initialState: AuthState = {
 
   sessions: [],
   isSessionsLoading: false,
+  isForgotPasswordLoading: false,
 };
 
 export const authSlice = createSlice({
@@ -211,6 +213,17 @@ export const authSlice = createSlice({
       .addCase(fetchSessionsList.rejected, (state) => {
         state.isSessionsLoading = false;
         state.sessions = [];
+      });
+
+    builder
+      .addCase(fetchForgotPassword.pending, (state) => {
+        state.isForgotPasswordLoading = true;
+      })
+      .addCase(fetchForgotPassword.fulfilled, (state) => {
+        state.isForgotPasswordLoading = false;
+      })
+      .addCase(fetchForgotPassword.rejected, (state) => {
+        state.isForgotPasswordLoading = false;
       });
   },
 });

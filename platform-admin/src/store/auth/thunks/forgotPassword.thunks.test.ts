@@ -1,11 +1,11 @@
-import { beforeEach, describe, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   fetchForgotPassword,
   fetchForgotPasswordOtpVerify,
   resetForgottenPassword,
 } from "./forgotPassword.thunks";
-import { itBehavesLikeSimpleThunk } from "./thunk-test-utils";
+import { itBehavesLikeSimpleThunk, makeStore } from "./thunk-test-utils";
 
 const api = vi.hoisted(() => ({
   forgotPassword: vi.fn(),
@@ -28,6 +28,30 @@ describe("fetchForgotPassword", () => {
     expectedArgs: [payload],
     data: { message: "sent" },
     fallback: "Failed to send forgot password email",
+  });
+
+  it("is not loading before the request", () => {
+    expect(makeStore().getState().auth.isForgotPasswordLoading).toBe(false);
+  });
+
+  it("is loading while the request is in flight and not once it succeeds", async () => {
+    api.forgotPassword.mockResolvedValue({ message: "sent" });
+    const store = makeStore();
+
+    const pending = store.dispatch(fetchForgotPassword(payload as never));
+    expect(store.getState().auth.isForgotPasswordLoading).toBe(true);
+    await pending;
+
+    expect(store.getState().auth.isForgotPasswordLoading).toBe(false);
+  });
+
+  it("is not loading once the request fails", async () => {
+    api.forgotPassword.mockRejectedValue(new Error("boom"));
+    const store = makeStore();
+
+    await store.dispatch(fetchForgotPassword(payload as never));
+
+    expect(store.getState().auth.isForgotPasswordLoading).toBe(false);
   });
 });
 
