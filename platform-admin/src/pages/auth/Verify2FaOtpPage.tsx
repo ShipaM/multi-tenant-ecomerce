@@ -30,7 +30,7 @@ const Verify2FaOtpPage = () => {
   const dispatch = useAppDispatch();
   const [otp, setOtp] = useState("");
   const isVerifying = useAppSelector(
-    (state) => state.auth.isTwoFactorVerifyOtpLoading,
+    (state) => state.auth.isVerify2FaLoginOtpLoading,
   );
   const [error, setError] = useState<string | null>(null);
 
