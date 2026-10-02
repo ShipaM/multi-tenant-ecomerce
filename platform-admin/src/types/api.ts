@@ -6,6 +6,6 @@ export type ApiErrorResponse = {
 
 // Marks a request that has already gone through one 401 -> refresh -> retry
 // cycle, so the axios response interceptor doesn't retry it a second time.
-export interface RetriableConfig extends InternalAxiosRequestConfig {
+export type RetriableConfig = InternalAxiosRequestConfig & {
   _retry?: boolean;
-}
+};

@@ -12,7 +12,7 @@ export type UserType = (typeof USER_TYPES)[number];
 export const isUserType = (value: unknown): value is UserType =>
   typeof value === "string" && USER_TYPES.includes(value as UserType);
 
-export interface User {
+export type User = {
   email: string;
   fullName: string;
   userType: UserType;
@@ -28,7 +28,7 @@ export interface User {
   role?: Role;
   // Initials derived on the client from fullName/email for the avatar fallback.
   avatarName?: string;
-}
+};
 
 // Fields the owner can edit on their own profile via PUT /users/me — mirrors
 // backend/src/users/dto/update-user.dto.ts.

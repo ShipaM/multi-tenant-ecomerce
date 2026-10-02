@@ -2,7 +2,7 @@ import type { Session, User, UserType } from "@/types";
 
 // Redux state for the auth slice — distinct from the API request/response
 // contracts in `@/types/auth`, which describe what the backend sends/expects.
-export interface AuthState {
+export type AuthState = {
   user: User | null;
   accessToken: string | null;
   refreshToken: string | null;
@@ -20,4 +20,4 @@ export interface AuthState {
   twoFactorRequired: boolean;
   sessions: Session[];
   isSessionsLoading: boolean;
-}
+};

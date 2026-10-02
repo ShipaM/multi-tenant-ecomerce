@@ -15,11 +15,11 @@ export type CompleteLoginResponse = TokenPair & {
   userType: UserType;
 };
 
-export interface TwoFactorLoginResponse {
+export type TwoFactorLoginResponse = {
   twoFactorRequired: true;
   twoFactorToken: string;
   message: string;
-}
+};
 
 export type SessionsResponse = Session[];
 

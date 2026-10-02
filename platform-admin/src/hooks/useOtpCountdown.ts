@@ -3,11 +3,11 @@ import moment from "moment";
 
 const OTP_EXPIRY_MINUTES = 5;
 
-interface UseOtpCountdownReturn {
+type UseOtpCountdownReturn = {
   remainingSeconds: number;
   formattedTime: string;
   isExpired: boolean;
-}
+};
 
 const calculateRemainingSeconds = (
   createdAt: string | Date | null | undefined,
