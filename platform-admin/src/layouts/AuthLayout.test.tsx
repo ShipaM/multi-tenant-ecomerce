@@ -10,10 +10,12 @@ import AuthLayout from "./AuthLayout";
 
 vi.mock("@/assets/platform-logo.png", () => ({ default: "logo.png" }));
 
-function renderLayout() {
+function renderLayout(accessToken: string | null = null) {
   const store = configureStore({
     reducer: { auth: authReducer },
-    preloadedState: undefined,
+    preloadedState: {
+      auth: { ...authReducer(undefined, { type: "@@INIT" }), accessToken },
+    },
   });
 
   return render(
@@ -27,6 +29,31 @@ function renderLayout() {
             />
             <Route path="/auth/forgot-password" element={<h1>Forgot</h1>} />
           </Route>
+        </Routes>
+      </MemoryRouter>
+    </Provider>,
+  );
+}
+
+function renderLayoutWithDashboard(accessToken: string | null) {
+  const store = configureStore({
+    reducer: { auth: authReducer },
+    preloadedState: {
+      auth: { ...authReducer(undefined, { type: "@@INIT" }), accessToken },
+    },
+  });
+
+  return render(
+    <Provider store={store}>
+      <MemoryRouter initialEntries={["/auth/login"]} useTransitions={false}>
+        <Routes>
+          <Route element={<AuthLayout />}>
+            <Route
+              path="/auth/login"
+              element={<Link to="/auth/forgot-password">Forgot</Link>}
+            />
+          </Route>
+          <Route path="/dashboard" element={<h1>Dashboard</h1>} />
         </Routes>
       </MemoryRouter>
     </Provider>,
@@ -62,5 +89,26 @@ describe("AuthLayout accessibility", () => {
     await screen.findByRole("main");
 
     await expectNoA11yViolations(container);
+  });
+});
+
+describe("AuthLayout session handling", () => {
+  it("sends a signed-in user to the dashboard", async () => {
+    renderLayoutWithDashboard("access-token");
+
+    expect(
+      await screen.findByRole("heading", { name: "Dashboard" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps a signed-out user on the auth page", async () => {
+    renderLayoutWithDashboard(null);
+
+    expect(
+      await screen.findByRole("link", { name: "Forgot" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Dashboard" }),
+    ).not.toBeInTheDocument();
   });
 });

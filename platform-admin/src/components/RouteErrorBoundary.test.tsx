@@ -87,4 +87,106 @@ describe("RouteErrorBoundary", () => {
       screen.queryByRole("heading", { name: "Something went wrong" }),
     ).not.toBeInTheDocument();
   });
+
+  it("treats a failed Vite preload as a chunk error whatever the message says", () => {
+    window.dispatchEvent(new Event("vite:preloadError"));
+
+    render(
+      <MemoryRouter>
+        <RouteErrorBoundary>
+          <Bomb message="boom" />
+        </RouteErrorBoundary>
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "A new version is available" }),
+    ).toBeInTheDocument();
+  });
+
+  it("forgets a preload failure once it has been reported", () => {
+    window.dispatchEvent(new Event("vite:preloadError"));
+    const { unmount } = render(
+      <MemoryRouter>
+        <RouteErrorBoundary>
+          <Bomb message="first" />
+        </RouteErrorBoundary>
+      </MemoryRouter>,
+    );
+    unmount();
+
+    render(
+      <MemoryRouter>
+        <RouteErrorBoundary>
+          <Bomb message="second" />
+        </RouteErrorBoundary>
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Something went wrong" }),
+    ).toBeInTheDocument();
+  });
+
+  it("reloads the page from the fallback", () => {
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
+    render(
+      <MemoryRouter>
+        <RouteErrorBoundary>
+          <Bomb message="boom" />
+        </RouteErrorBoundary>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+
+    expect(reload).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  describe("error details", () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("shows the error message during development", () => {
+      vi.stubEnv("DEV", true);
+
+      render(
+        <MemoryRouter>
+          <RouteErrorBoundary>
+            <Bomb message="secret detail" />
+          </RouteErrorBoundary>
+        </MemoryRouter>,
+      );
+
+      expect(screen.getByText("secret detail")).toBeInTheDocument();
+    });
+
+    it("hides the error message in production", () => {
+      vi.stubEnv("DEV", false);
+
+      render(
+        <MemoryRouter>
+          <RouteErrorBoundary>
+            <Bomb message="secret detail" />
+          </RouteErrorBoundary>
+        </MemoryRouter>,
+      );
+
+      expect(screen.queryByText("secret detail")).not.toBeInTheDocument();
+    });
+  });
+
+  it("can be loaded where there is no window", async () => {
+    vi.resetModules();
+    vi.stubGlobal("window", undefined);
+
+    await expect(import("./RouteErrorBoundary")).resolves.toHaveProperty(
+      "RouteErrorBoundary",
+    );
+
+    vi.unstubAllGlobals();
+  });
 });

@@ -1,9 +1,10 @@
+import { installStorage } from "@/test/storage";
 import axios, {
   AxiosError,
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from "axios";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LOCAL_STORAGE_KEYS } from "@/lib/storage";
 
@@ -33,22 +34,6 @@ function unauthorized(config: InternalAxiosRequestConfig): never {
     statusText: "Unauthorized",
     headers: {},
     config,
-  });
-}
-
-// The runtime hands jsdom a partial localStorage, so the test brings its own.
-function installStorage() {
-  const entries = new Map<string, string>();
-
-  Object.defineProperty(window, "localStorage", {
-    value: {
-      getItem: (key: string) => entries.get(key) ?? null,
-      setItem: (key: string, value: string) => entries.set(key, value),
-      removeItem: (key: string) => entries.delete(key),
-      clear: () => entries.clear(),
-    },
-    writable: true,
-    configurable: true,
   });
 }
 
@@ -248,5 +233,54 @@ describe("Axios client", () => {
     expect(localStorage.getItem(LOCAL_STORAGE_KEYS.ACCESS_TOKEN)).toBe(
       "stale-access",
     );
+  });
+
+  it("sends a request without credentials when nobody is signed in", async () => {
+    installStorage();
+    let authorization: unknown = "unset";
+    respond = (config) => {
+      authorization = config.headers.Authorization;
+      return ok(config);
+    };
+
+    const client = await loadClient();
+    await client.get("/users/me");
+
+    expect(authorization).toBeUndefined();
+  });
+
+  it("signs the user out when a 401 arrives and there is no refresh token to try", async () => {
+    localStorage.removeItem(LOCAL_STORAGE_KEYS.REFRESH_TOKEN);
+    respond = (config) => unauthorized(config);
+
+    const client = await loadClient();
+
+    await expect(client.get("/users/me")).rejects.toThrow(
+      "No refresh token available",
+    );
+    expect(refreshCallCount()).toBe(0);
+    expect(window.location.href).toBe("/auth/login");
+  });
+
+  describe("base URL", () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("uses the configured API address", async () => {
+      vi.stubEnv("VITE_APP_API_BASE_URL", "https://api.example.com");
+
+      const client = await loadClient();
+
+      expect(client.defaults.baseURL).toBe("https://api.example.com");
+    });
+
+    it("falls back to the local API when none is configured", async () => {
+      vi.stubEnv("VITE_APP_API_BASE_URL", "");
+
+      const client = await loadClient();
+
+      expect(client.defaults.baseURL).toBe("http://localhost:4000");
+    });
   });
 });
