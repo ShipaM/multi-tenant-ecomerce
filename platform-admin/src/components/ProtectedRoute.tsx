@@ -1,4 +1,5 @@
 import { useAppDispatch, useAppSelector } from "@/hooks/use-store";
+import { buildLoginUrl } from "@/lib/redirect";
 import { fetchMe } from "@/store/auth/thunks";
 import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
@@ -18,10 +19,9 @@ export const ProtectedRoute = () => {
   }, [dispatch, hasToken]);
 
   if (!hasToken) {
-    const redirectTarget = `${location.pathname}${location.search}`;
     return (
       <Navigate
-        to={`/auth/login?redirect_uri=${encodeURIComponent(redirectTarget)}`}
+        to={buildLoginUrl(`${location.pathname}${location.search}`)}
         replace
       />
     );

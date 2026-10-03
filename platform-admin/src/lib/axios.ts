@@ -1,5 +1,6 @@
 import axios, { AxiosError } from "axios";
 import type { RetriableConfig, TokenPair } from "@/types";
+import { buildLoginUrl } from "./redirect";
 import { storage } from "./storage";
 
 const baseURL =
@@ -12,6 +13,14 @@ export const Axios = axios.create({
 const refreshClient = axios.create({
   baseURL,
 });
+
+/** The page the user is on, so they can come back to it after signing in again; auth pages are not worth returning to. */
+const currentAppPath = (): string | undefined => {
+  const { pathname = "", search = "" } = window.location;
+  return pathname && !pathname.startsWith("/auth/")
+    ? `${pathname}${search}`
+    : undefined;
+};
 
 const PUBLIC_AUTH_PATHS = ["/auth/login", "/auth/refresh"];
 
@@ -81,7 +90,7 @@ Axios.interceptors.response.use(
       newAccessToken = await fetchRefreshToken();
     } catch (refreshError) {
       storage.clearStorage();
-      window.location.href = "/auth/login";
+      window.location.href = buildLoginUrl(currentAppPath());
       return Promise.reject(refreshError);
     }
 

@@ -147,6 +147,36 @@ describe("Axios client", () => {
     expect(window.location.href).toBe("/auth/login");
   });
 
+  it("remembers the current page when the session cannot be refreshed", async () => {
+    window.location = {
+      href: "/orders?page=2",
+      pathname: "/orders",
+      search: "?page=2",
+    } as unknown as Location;
+    respond = (config) => unauthorized(config);
+
+    const client = await loadClient();
+    await expect(client.get("/users/me")).rejects.toBeInstanceOf(AxiosError);
+
+    expect(window.location.href).toBe(
+      "/auth/login?redirect_uri=%2Forders%3Fpage%3D2",
+    );
+  });
+
+  it("does not remember an auth page as the return target", async () => {
+    window.location = {
+      href: "/auth/2fa",
+      pathname: "/auth/2fa",
+      search: "",
+    } as unknown as Location;
+    respond = (config) => unauthorized(config);
+
+    const client = await loadClient();
+    await expect(client.get("/users/me")).rejects.toBeInstanceOf(AxiosError);
+
+    expect(window.location.href).toBe("/auth/login");
+  });
+
   it("leaves an unauthenticated request alone", async () => {
     installStorage();
     respond = (config) => unauthorized(config);
