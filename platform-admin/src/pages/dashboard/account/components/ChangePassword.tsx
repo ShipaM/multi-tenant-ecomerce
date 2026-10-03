@@ -1,4 +1,4 @@
-import { PageTitle, PasswordInput, SubmitButton } from "@/components";
+import { DialogPageTitle, PasswordInput, SubmitButton } from "@/components";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
 import { useAppSelector, useAppDispatch } from "@/hooks/use-store";
@@ -74,7 +74,7 @@ export const ChangePassword = () => {
         </Button>
       </DialogTrigger>
       <DialogContent className="w-full lg:max-w-2xl min-h-28 p-4 lg:p-6">
-        <PageTitle
+        <DialogPageTitle
           title="Change Password"
           classNameTitle="font-semibold"
           description="Update your password here..."

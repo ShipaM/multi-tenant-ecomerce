@@ -1,4 +1,4 @@
-import { PageTitle, SubmitButton } from "@/components";
+import { DialogPageTitle, SubmitButton } from "@/components";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,7 +72,7 @@ export const EditProfile: FC<EditProfileProps> = ({ user }) => {
         </Button>
       </DialogTrigger>
       <DialogContent className="w-full lg:max-w-2xl min-h-28 p-4 lg:p-6">
-        <PageTitle
+        <DialogPageTitle
           title="Edit profile"
           classNameTitle="font-semibold"
           description="Update your profile details"

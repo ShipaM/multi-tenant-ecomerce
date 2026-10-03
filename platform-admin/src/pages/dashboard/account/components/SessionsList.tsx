@@ -1,4 +1,4 @@
-import { PageTitle, SubmitButton } from "@/components";
+import { DialogPageTitle, PageTitle, SubmitButton } from "@/components";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -127,7 +127,10 @@ export const SessionsList = () => {
                         <Button variant="outline">Revoke</Button>
                       </DialogTrigger>
                       <DialogContent className="w-full lg:max-w-2xl min-h-28 p-4 lg:p-6">
-                        <PageTitle title="Revoke session" description="" />
+                        <DialogPageTitle
+                          title="Revoke session"
+                          description="This signs the device out immediately."
+                        />
                         <p>Do you want to revoke this session?</p>
                         <DialogFooter className="flex items-center sm:justify-center justify-center">
                           <Button

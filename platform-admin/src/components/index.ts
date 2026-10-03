@@ -1,4 +1,5 @@
 export * from "./AppSidebar";
+export * from "./DialogPageTitle";
 export * from "../hooks/useOtpCountdown";
 export * from "./PageTitle";
 export * from "./PasswordInput";
