@@ -5,74 +5,29 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
-import { useAppDispatch, useAppSelector } from "@/hooks/use-store";
-import { isSafeRedirectPath } from "@/lib/redirect";
-import { verify2FaLoginOtp } from "@/store/auth/thunks";
-import {
-  isCompleteLoginResponse,
-  isTwoFactorRequiredResponse,
-  type AuthNavigationState,
-} from "@/types";
+import { buildLoginUrl } from "@/lib/redirect";
 import { ArrowLeft } from "lucide-react";
-import { useEffect, useState, type SubmitEvent } from "react";
-import { useLocation, useNavigate } from "react-router";
+import {
+  useVerify2FaOtp,
+  useVerify2FaSession,
+  useVerify2FaSubmit,
+} from "./hooks";
 
 const Verify2FaOtpPage = () => {
-  const location = useLocation();
-  const navState = location.state as AuthNavigationState | null;
-  const email = navState?.email;
-  const twoFactorToken = navState?.twoFactorToken;
-  const redirectTo =
-    navState?.redirectTo && isSafeRedirectPath(navState.redirectTo)
-      ? navState.redirectTo
-      : "/dashboard";
-
-  const dispatch = useAppDispatch();
-  const [otp, setOtp] = useState("");
-  const isVerifying = useAppSelector(
-    (state) => state.auth.isVerify2FaLoginOtpLoading,
-  );
-  const [error, setError] = useState<string | null>(null);
-
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!twoFactorToken) navigate("/auth/login");
-  }, [twoFactorToken, navigate]);
-
-  const handleSubmit = async (e: SubmitEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    setError(null);
-    try {
-      const response = await dispatch(
-        verify2FaLoginOtp({
-          twoFactorToken: twoFactorToken ?? "",
-          otp,
-        }),
-      ).unwrap();
-
-      if (isCompleteLoginResponse(response)) {
-        navigate(redirectTo, { replace: true });
-      } else if (isTwoFactorRequiredResponse(response)) {
-        navigate("/auth/2fa", {
-          state: {
-            twoFactorToken: response.twoFactorToken,
-            email: email,
-            redirectTo,
-          },
-        });
-      }
-    } catch (err) {
-      setError(typeof err === "string" ? err : "Failed to verify otp");
-    }
-  };
+  const { email, twoFactorToken, redirectTo } = useVerify2FaSession();
+  const { otp, onOtpChange } = useVerify2FaOtp();
+  const { handleSubmit, isVerifying, error } = useVerify2FaSubmit({
+    otp,
+    email,
+    twoFactorToken,
+    redirectTo,
+  });
 
   return (
     <div className="w-full max-w-sm">
       <PrefetchLink
         prefetchModule="login"
-        to={"/auth/login"}
+        to={buildLoginUrl(redirectTo)}
         aria-label="Back to sign in"
         className="mb-4 inline-flex text-foreground items-center gap-2"
       >
@@ -100,7 +55,7 @@ const Verify2FaOtpPage = () => {
           id="verify-2fa-otp"
           maxLength={6}
           value={otp}
-          onChange={setOtp}
+          onChange={onOtpChange}
           disabled={isVerifying}
           className="w-full"
         >

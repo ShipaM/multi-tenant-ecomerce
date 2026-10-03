@@ -4,7 +4,7 @@ export const routeModules = {
   forgotPassword: () =>
     import("@/pages/auth/forgot-pasword/ForgotPasswordPage"),
   verifyOtp: () => import("@/pages/auth/VerifyForgotOtpPage"),
-  verify2Fa: () => import("@/pages/auth/Verify2FaOtpPage"),
+  verify2Fa: () => import("@/pages/auth/verify-2fa-otp/Verify2FaOtpPage"),
   resetPassword: () => import("@/pages/auth/reset-password/ResetPasswordPage"),
   dashboard: () => import("@/pages/dashboard/DashboardPage"),
   sellers: () => import("@/pages/dashboard/sellers/SellersPage"),
