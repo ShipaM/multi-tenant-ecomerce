@@ -16,7 +16,10 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    babel({ presets: [reactCompilerPreset()] }),
+    // The compiler rewrites components with memo-cache branches that distort test coverage, so tests run the source as written.
+    ...(process.env.VITEST
+      ? []
+      : [babel({ presets: [reactCompilerPreset()] })]),
     tailwindcss(),
   ],
 });
