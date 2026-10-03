@@ -17,7 +17,6 @@ type UseVerify2FaSubmitResult = {
   error: string | null;
 };
 
-/** Verifies the 2FA code, then enters the app, or moves on to another 2FA step when the server asks for one. */
 export const useVerify2FaSubmit = ({
   otp,
   email,

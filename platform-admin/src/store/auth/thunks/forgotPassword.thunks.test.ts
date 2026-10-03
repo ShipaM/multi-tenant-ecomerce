@@ -66,6 +66,34 @@ describe("fetchForgotPasswordOtpVerify", () => {
     data: { message: "verified", resetToken: "tok" },
     fallback: "Failed to verify forgot password otp",
   });
+
+  it("is not loading before the request", () => {
+    expect(makeStore().getState().auth.isForgotPasswordOtpVerifyLoading).toBe(
+      false,
+    );
+  });
+
+  it("is loading while the request is in flight and not once it succeeds", async () => {
+    api.forgotPasswordOtpVerify.mockResolvedValue({ message: "ok" });
+    const store = makeStore();
+
+    const pending = store.dispatch(
+      fetchForgotPasswordOtpVerify(payload as never),
+    );
+    expect(store.getState().auth.isForgotPasswordOtpVerifyLoading).toBe(true);
+    await pending;
+
+    expect(store.getState().auth.isForgotPasswordOtpVerifyLoading).toBe(false);
+  });
+
+  it("is not loading once the request fails", async () => {
+    api.forgotPasswordOtpVerify.mockRejectedValue(new Error("boom"));
+    const store = makeStore();
+
+    await store.dispatch(fetchForgotPasswordOtpVerify(payload as never));
+
+    expect(store.getState().auth.isForgotPasswordOtpVerifyLoading).toBe(false);
+  });
 });
 
 describe("resetForgottenPassword", () => {
@@ -77,5 +105,29 @@ describe("resetForgottenPassword", () => {
     expectedArgs: [payload],
     data: { message: "reset" },
     fallback: "Failed to reset password",
+  });
+
+  it("is not loading before the request", () => {
+    expect(makeStore().getState().auth.isResetPasswordLoading).toBe(false);
+  });
+
+  it("is loading while the request is in flight and not once it succeeds", async () => {
+    api.resetForgottenPassword.mockResolvedValue({ message: "ok" });
+    const store = makeStore();
+
+    const pending = store.dispatch(resetForgottenPassword(payload as never));
+    expect(store.getState().auth.isResetPasswordLoading).toBe(true);
+    await pending;
+
+    expect(store.getState().auth.isResetPasswordLoading).toBe(false);
+  });
+
+  it("is not loading once the request fails", async () => {
+    api.resetForgottenPassword.mockRejectedValue(new Error("boom"));
+    const store = makeStore();
+
+    await store.dispatch(resetForgottenPassword(payload as never));
+
+    expect(store.getState().auth.isResetPasswordLoading).toBe(false);
   });
 });

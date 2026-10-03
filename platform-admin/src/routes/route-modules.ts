@@ -3,7 +3,7 @@ export const routeModules = {
   notFound: () => import("@/pages/errors/NotFoundPage"),
   forgotPassword: () =>
     import("@/pages/auth/forgot-pasword/ForgotPasswordPage"),
-  verifyOtp: () => import("@/pages/auth/VerifyForgotOtpPage"),
+  verifyOtp: () => import("@/pages/auth/verify-forgot-otp/VerifyForgotOtpPage"),
   verify2Fa: () => import("@/pages/auth/verify-2fa-otp/Verify2FaOtpPage"),
   resetPassword: () => import("@/pages/auth/reset-password/ResetPasswordPage"),
   dashboard: () => import("@/pages/dashboard/DashboardPage"),

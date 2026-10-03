@@ -21,5 +21,6 @@ export type AuthState = {
   sessions: Session[];
   isSessionsLoading: boolean;
   isForgotPasswordLoading: boolean;
+  isForgotPasswordOtpVerifyLoading: boolean;
   isResetPasswordLoading: boolean;
 };

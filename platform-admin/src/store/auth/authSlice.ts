@@ -6,6 +6,7 @@ import {
   changePassword,
   fetchLogin,
   fetchForgotPassword,
+  fetchForgotPasswordOtpVerify,
   fetchLogout,
   fetchMe,
   fetchSessionsList,
@@ -37,6 +38,7 @@ const initialState: AuthState = {
   sessions: [],
   isSessionsLoading: false,
   isForgotPasswordLoading: false,
+  isForgotPasswordOtpVerifyLoading: false,
   isResetPasswordLoading: false,
 };
 
@@ -226,6 +228,17 @@ export const authSlice = createSlice({
       })
       .addCase(fetchForgotPassword.rejected, (state) => {
         state.isForgotPasswordLoading = false;
+      });
+
+    builder
+      .addCase(fetchForgotPasswordOtpVerify.pending, (state) => {
+        state.isForgotPasswordOtpVerifyLoading = true;
+      })
+      .addCase(fetchForgotPasswordOtpVerify.fulfilled, (state) => {
+        state.isForgotPasswordOtpVerifyLoading = false;
+      })
+      .addCase(fetchForgotPasswordOtpVerify.rejected, (state) => {
+        state.isForgotPasswordOtpVerifyLoading = false;
       });
 
     builder
