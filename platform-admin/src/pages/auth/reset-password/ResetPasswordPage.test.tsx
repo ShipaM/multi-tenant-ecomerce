@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import authReducer from "@/store/auth/authSlice";
+import { expectNoA11yViolations } from "@/test/axe";
 import ResetPasswordPage from "./ResetPasswordPage";
 
 const resetForgottenPassword = vi.hoisted(() => vi.fn());
@@ -114,7 +115,7 @@ describe("ResetPasswordPage", () => {
       renderPage();
 
       fireEvent.click(
-        screen.getAllByRole("button", { name: "Show Password" })[0],
+        screen.getAllByRole("button", { name: "Show password" })[0],
       );
 
       expect(passwordInput()).toHaveAttribute("type", "text");
@@ -254,6 +255,94 @@ describe("ResetPasswordPage", () => {
       expect(
         await screen.findByRole("heading", { name: "Password Updated" }),
       ).toBeInTheDocument();
+    });
+  });
+
+  describe("accessibility", () => {
+    it("sets a descriptive document title", () => {
+      renderPage();
+
+      expect(document.title).toBe("Set a new password | Platform Admin");
+    });
+
+    it("marks both fields as required", () => {
+      renderPage();
+
+      expect(passwordInput()).toBeRequired();
+      expect(confirmInput()).toBeRequired();
+    });
+
+    it("ties each invalid field to its error message", () => {
+      renderPage();
+
+      fireEvent.click(submitButton());
+
+      expect(passwordInput()).toHaveAccessibleDescription(
+        "Password is required",
+      );
+      expect(confirmInput()).toHaveAccessibleDescription(
+        "Confirm your password",
+      );
+    });
+
+    it("describes the confirmation by the mismatch while typing", () => {
+      renderPage();
+
+      type(passwordInput(), validPassword);
+      type(confirmInput(), "different");
+
+      expect(confirmInput()).toHaveAccessibleDescription(
+        "Passwords don't match",
+      );
+    });
+
+    it("announces a request failure as an alert", async () => {
+      resetForgottenPassword.mockRejectedValue(new Error("network down"));
+      renderPage();
+
+      fillAndSubmit();
+
+      expect(
+        await screen.findByText("Failed to reset password"),
+      ).toHaveAttribute("role", "alert");
+    });
+
+    it("moves focus to the success heading and updates the title once the password is reset", async () => {
+      resetForgottenPassword.mockResolvedValue({
+        success: true,
+        message: "ok",
+      });
+      renderPage();
+
+      fillAndSubmit();
+
+      const heading = await screen.findByRole("heading", {
+        name: "Password Updated",
+      });
+      expect(heading).toHaveFocus();
+      expect(document.title).toBe("Password updated | Platform Admin");
+    });
+
+    it("has no axe violations on the form, with errors, while updating and on the success screen", async () => {
+      renderPage();
+      await expectNoA11yViolations();
+
+      fireEvent.click(submitButton());
+      await expectNoA11yViolations();
+
+      let resolveRequest: (value: unknown) => void = () => {};
+      resetForgottenPassword.mockReturnValue(
+        new Promise((resolve) => {
+          resolveRequest = resolve;
+        }),
+      );
+      fillAndSubmit();
+      await screen.findByRole("button", { name: /Updating/ });
+      await expectNoA11yViolations();
+
+      resolveRequest({ success: true, message: "ok" });
+      await screen.findByRole("heading", { name: "Password Updated" });
+      await expectNoA11yViolations();
     });
   });
 });

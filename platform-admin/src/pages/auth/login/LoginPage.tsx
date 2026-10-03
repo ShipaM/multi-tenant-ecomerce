@@ -30,6 +30,7 @@ const LoginPage = () => {
 
   return (
     <div className="w-full max-w-sm">
+      <title>Sign in | Platform Admin</title>
       <h1 className="text-2xl font-bold">Sign In</h1>
       <p>Access the platform admin console</p>
       <form className="mt-7" noValidate onSubmit={handleSubmit}>
@@ -42,7 +43,9 @@ const LoginPage = () => {
               placeholder="you@platform.com"
               autoComplete="username"
               className="h-11"
+              required
               aria-invalid={!!fieldErrors.email}
+              aria-describedby={fieldErrors.email ? "email-error" : undefined}
               value={credentials.email}
               onChange={(e) => {
                 onEmailChange(e);
@@ -50,7 +53,7 @@ const LoginPage = () => {
               }}
               disabled={isLoginLoading}
             />
-            <FieldError>{fieldErrors.email}</FieldError>
+            <FieldError id="email-error">{fieldErrors.email}</FieldError>
           </Field>
 
           <Field data-invalid={!!fieldErrors.password}>
@@ -70,7 +73,11 @@ const LoginPage = () => {
               className="h-11"
               placeholder="••••••••"
               autoComplete="current-password"
+              required
               aria-invalid={!!fieldErrors.password}
+              aria-describedby={
+                fieldErrors.password ? "password-error" : undefined
+              }
               value={credentials.password}
               onChange={(e) => {
                 onPasswordChange(e);
@@ -78,10 +85,14 @@ const LoginPage = () => {
               }}
               disabled={isLoginLoading}
             />
-            <FieldError>{fieldErrors.password}</FieldError>
+            <FieldError id="password-error">{fieldErrors.password}</FieldError>
           </Field>
 
-          {error && <p className="mt-1 text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="mt-1 text-sm text-destructive">
+              {error}
+            </p>
+          )}
 
           <SubmitButton
             className="mt-2 h-11 w-full"

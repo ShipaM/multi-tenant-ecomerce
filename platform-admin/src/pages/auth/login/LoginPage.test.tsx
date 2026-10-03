@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import authReducer from "@/store/auth/authSlice";
+import { expectNoA11yViolations } from "@/test/axe";
 import LoginPage from "./LoginPage";
 
 const login = vi.hoisted(() => vi.fn());
@@ -224,5 +225,60 @@ describe("LoginPage", () => {
     await waitFor(() =>
       expect(screen.getByText("Dashboard page")).toBeInTheDocument(),
     );
+  });
+
+  describe("accessibility", () => {
+    it("sets a descriptive document title", () => {
+      renderLogin();
+
+      expect(document.title).toBe("Sign in | Platform Admin");
+    });
+
+    it("marks both fields as required", () => {
+      renderLogin();
+
+      expect(emailInput()).toBeRequired();
+      expect(passwordInput()).toBeRequired();
+    });
+
+    it("ties each invalid field to its error message", () => {
+      renderLogin();
+
+      fireEvent.click(submitButton());
+
+      expect(emailInput()).toHaveAccessibleDescription("Email is required");
+      expect(passwordInput()).toHaveAccessibleDescription(
+        "Password is required",
+      );
+    });
+
+    it("drops the description once the error is cleared", () => {
+      renderLogin();
+      fireEvent.click(submitButton());
+
+      fireEvent.change(emailInput(), { target: { value: "j" } });
+
+      expect(emailInput()).not.toHaveAttribute("aria-describedby");
+    });
+
+    it("announces a server error as an alert", async () => {
+      login.mockRejectedValue(new Error("boom"));
+      renderLogin();
+
+      fillAndSubmit();
+
+      expect(await screen.findByText("Could not Sign in")).toHaveAttribute(
+        "role",
+        "alert",
+      );
+    });
+
+    it("has no axe violations on first render and with validation errors", async () => {
+      renderLogin();
+      await expectNoA11yViolations();
+
+      fireEvent.click(submitButton());
+      await expectNoA11yViolations();
+    });
   });
 });

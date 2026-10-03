@@ -1,4 +1,4 @@
-import { PasswordInput, PrefetchLink } from "@/components";
+import { PasswordInput, PrefetchLink, SubmitButton } from "@/components";
 import { Button } from "@/components/ui/button";
 
 import {
@@ -7,7 +7,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { Spinner } from "@/components/ui/spinner";
+import { focusOnMount } from "@/lib/focus";
 import { buildLoginUrl } from "@/lib/redirect";
 import { CheckCircle2 } from "lucide-react";
 import {
@@ -49,9 +49,16 @@ const ResetPassword = () => {
     return (
       <div className="w-full max-w-sm flex flex-col justify-center items-center">
         <div className="flex size-16 items-center justify-center rounded-full bg-accent">
-          <CheckCircle2 className="size-6 text-primary" />
+          <CheckCircle2 aria-hidden="true" className="size-6 text-primary" />
         </div>
-        <h1 className="mt-4 text-2xl font-bold">Password Updated</h1>
+        <title>Password updated | Platform Admin</title>
+        <h1
+          ref={focusOnMount}
+          tabIndex={-1}
+          className="mt-4 text-2xl font-bold outline-none"
+        >
+          Password Updated
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground text-center">
           Your password has been reset. You can now sign in with your new
           password.
@@ -67,6 +74,7 @@ const ResetPassword = () => {
 
   return (
     <div className="w-full max-w-sm">
+      <title>Set a new password | Platform Admin</title>
       <h1 className="text-2xl font-bold">Set a new Password</h1>
       <p className="mt-1.5 text-sm text-muted-foreground">
         {email ? (
@@ -90,14 +98,18 @@ const ResetPassword = () => {
               autoComplete="new-password"
               maxLength={72}
               value={password}
+              required
               aria-invalid={!!fieldErrors.password}
+              aria-describedby={
+                fieldErrors.password ? "password-error" : undefined
+              }
               onChange={(e) => {
                 onPasswordChange(e);
                 clearFieldError("password");
               }}
               disabled={isLoading}
             />
-            <FieldError>{fieldErrors.password}</FieldError>
+            <FieldError id="password-error">{fieldErrors.password}</FieldError>
           </Field>
 
           <Field data-invalid={!!confirmError}>
@@ -109,32 +121,33 @@ const ResetPassword = () => {
               autoComplete="new-password"
               maxLength={72}
               value={confirmPassword}
+              required
               aria-invalid={!!confirmError}
+              aria-describedby={
+                confirmError ? "confirm-password-error" : undefined
+              }
               onChange={(e) => {
                 onConfirmPasswordChange(e);
                 clearFieldError("confirmPassword");
               }}
               disabled={isLoading}
             />
-            <FieldError>{confirmError}</FieldError>
+            <FieldError id="confirm-password-error">{confirmError}</FieldError>
           </Field>
 
-          {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="mt-3 text-sm text-destructive">
+              {error}
+            </p>
+          )}
 
-          <Button
-            type="submit"
+          <SubmitButton
             className="mt-6 h-11 w-full"
-            disabled={isLoading}
+            loading={isLoading}
+            loadingText="Updating..."
           >
-            {isLoading ? (
-              <>
-                <Spinner className="size-4" />
-                Updating...
-              </>
-            ) : (
-              "Reset Password"
-            )}
-          </Button>
+            Reset Password
+          </SubmitButton>
         </FieldGroup>
       </form>
       <p className="mt-2 text-sm text-muted-foreground">

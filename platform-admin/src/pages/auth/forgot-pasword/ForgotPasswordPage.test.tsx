@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import authReducer from "@/store/auth/authSlice";
+import { expectNoA11yViolations } from "@/test/axe";
 import ForgotPasswordPage from "./ForgotPasswordPage";
 
 const forgotPassword = vi.hoisted(() => vi.fn());
@@ -178,5 +179,61 @@ describe("ForgotPasswordPage", () => {
 
     resolveRequest(successResponse);
     expect(await screen.findByText("OTP page")).toBeInTheDocument();
+  });
+
+  describe("accessibility", () => {
+    it("sets a descriptive document title", () => {
+      renderPage();
+
+      expect(document.title).toBe("Forgot password | Platform Admin");
+    });
+
+    it("marks the email field as required", () => {
+      renderPage();
+
+      expect(emailInput()).toBeRequired();
+    });
+
+    it("ties the invalid field to its error message", () => {
+      renderPage();
+
+      fireEvent.click(submitButton());
+
+      expect(emailInput()).toHaveAccessibleDescription("Email is required");
+    });
+
+    it("announces a request failure as an alert", async () => {
+      forgotPassword.mockRejectedValue(new Error("network down"));
+      renderPage();
+
+      fillAndSubmit();
+
+      expect(
+        await screen.findByText("Failed to send forgot password email"),
+      ).toHaveAttribute("role", "alert");
+    });
+
+    it("hides the decorative back arrow from assistive tech", () => {
+      renderPage();
+
+      expect(
+        screen
+          .getByRole("link", { name: "Back to sign in" })
+          .querySelector("svg"),
+      ).toHaveAttribute("aria-hidden", "true");
+    });
+
+    it("has no axe violations on first render, with errors and while sending", async () => {
+      renderPage();
+      await expectNoA11yViolations();
+
+      fireEvent.click(submitButton());
+      await expectNoA11yViolations();
+
+      forgotPassword.mockReturnValue(new Promise(() => {}));
+      fillAndSubmit();
+      await screen.findByRole("button", { name: /Sending otp/ });
+      await expectNoA11yViolations();
+    });
   });
 });

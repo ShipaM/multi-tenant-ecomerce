@@ -25,13 +25,14 @@ const Verify2FaOtpPage = () => {
 
   return (
     <div className="w-full max-w-sm">
+      <title>Two-factor verification | Platform Admin</title>
       <PrefetchLink
         prefetchModule="login"
         to={buildLoginUrl(redirectTo)}
         aria-label="Back to sign in"
         className="mb-4 inline-flex text-foreground items-center gap-2"
       >
-        <ArrowLeft className="size-5" />
+        <ArrowLeft aria-hidden="true" className="size-5" />
         Back
       </PrefetchLink>
 
@@ -57,6 +58,9 @@ const Verify2FaOtpPage = () => {
           value={otp}
           onChange={onOtpChange}
           disabled={isVerifying}
+          required
+          aria-invalid={!!error}
+          aria-describedby={error ? "verify-2fa-otp-error" : undefined}
           className="w-full"
         >
           <InputOTPGroup className="w-full">
@@ -69,7 +73,15 @@ const Verify2FaOtpPage = () => {
           </InputOTPGroup>
         </InputOTP>
 
-        {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+        {error && (
+          <p
+            id="verify-2fa-otp-error"
+            role="alert"
+            className="mt-3 text-sm text-destructive"
+          >
+            {error}
+          </p>
+        )}
 
         <SubmitButton
           className="mt-6 h-11 w-full"

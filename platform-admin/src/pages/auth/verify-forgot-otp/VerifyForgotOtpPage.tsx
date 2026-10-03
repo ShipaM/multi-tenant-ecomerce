@@ -1,12 +1,10 @@
-import { PrefetchLink } from "@/components";
-import { Button } from "@/components/ui/button";
+import { PrefetchLink, SubmitButton } from "@/components";
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { Label } from "@/components/ui/label";
-import { Spinner } from "@/components/ui/spinner";
 import { buildLoginUrl } from "@/lib/redirect";
 import { ArrowLeft } from "lucide-react";
 import {
@@ -43,13 +41,14 @@ const VerifyForgotOtpPage = () => {
 
   return (
     <div className="w-full max-w-sm">
+      <title>Verify code | Platform Admin</title>
       <PrefetchLink
         prefetchModule="login"
         to={buildLoginUrl(redirectTo)}
         aria-label="Back to sign in"
         className="mb-4 inline-flex text-foreground items-center gap-2"
       >
-        <ArrowLeft className="size-5" />
+        <ArrowLeft aria-hidden="true" className="size-5" />
         Back
       </PrefetchLink>
 
@@ -75,6 +74,9 @@ const VerifyForgotOtpPage = () => {
           value={otp}
           onChange={onOtpChange}
           disabled={isSubmitting || isResending}
+          required
+          aria-invalid={!!error}
+          aria-describedby={error ? "verify-forgot-otp-error" : undefined}
           className="w-full"
         >
           <InputOTPGroup className="w-full">
@@ -87,22 +89,16 @@ const VerifyForgotOtpPage = () => {
           </InputOTPGroup>
         </InputOTP>
         {isExpired ? (
-          <Button
+          <SubmitButton
             className="mt-3 cursor-pointer"
             variant="link"
-            onClick={handleResend}
             type="button"
-            disabled={isResending}
+            onClick={handleResend}
+            loading={isResending}
+            loadingText="Sending.."
           >
-            {isResending ? (
-              <>
-                <Spinner className="size-4" />
-                Sending..
-              </>
-            ) : (
-              "Resend Otp"
-            )}
-          </Button>
+            Resend Otp
+          </SubmitButton>
         ) : (
           <>
             <p className="mt-3 text-sm text-muted-foreground">
@@ -111,22 +107,24 @@ const VerifyForgotOtpPage = () => {
           </>
         )}
 
-        {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+        {error && (
+          <p
+            id="verify-forgot-otp-error"
+            role="alert"
+            className="mt-3 text-sm text-destructive"
+          >
+            {error}
+          </p>
+        )}
 
-        <Button
-          type="submit"
+        <SubmitButton
           className="mt-6 h-11 w-full"
-          disabled={isSubmitting || isResending}
+          loading={isSubmitting}
+          loadingText="Verifying.."
+          disabled={isResending}
         >
-          {isSubmitting ? (
-            <>
-              <Spinner className="size-4" />
-              Verifying..
-            </>
-          ) : (
-            "Verify OTP"
-          )}
-        </Button>
+          Verify OTP
+        </SubmitButton>
       </form>
     </div>
   );

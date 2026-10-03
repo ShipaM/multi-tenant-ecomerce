@@ -1,8 +1,6 @@
-import { PrefetchLink } from "@/components";
-import { Button } from "@/components/ui/button";
+import { PrefetchLink, SubmitButton } from "@/components";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Spinner } from "@/components/ui/spinner";
 import { useRedirectState } from "@/hooks/use-redirect-state";
 import { buildLoginUrl } from "@/lib/redirect";
 import { ArrowLeft } from "lucide-react";
@@ -28,13 +26,14 @@ const ForgotPasswordPage = () => {
 
   return (
     <div className="w-full max-w-sm">
+      <title>Forgot password | Platform Admin</title>
       <PrefetchLink
         to={buildLoginUrl(redirectTo)}
         prefetchModule="login"
         aria-label="Back to sign in"
         className="mb-4 inline-flex text-foreground items-center gap-2"
       >
-        <ArrowLeft className="size-5" />
+        <ArrowLeft aria-hidden="true" className="size-5" />
         Back
       </PrefetchLink>
 
@@ -53,28 +52,31 @@ const ForgotPasswordPage = () => {
             autoComplete="username"
             className="h-11"
             value={email}
+            required
             aria-invalid={!!emailError}
+            aria-describedby={emailError ? "email-error" : undefined}
             onChange={(e) => {
               onEmailChange(e);
               clearEmailError();
             }}
             disabled={isLoading}
           />
-          <FieldError>{emailError}</FieldError>
+          <FieldError id="email-error">{emailError}</FieldError>
         </Field>
 
-        {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+        {error && (
+          <p role="alert" className="mt-3 text-sm text-destructive">
+            {error}
+          </p>
+        )}
 
-        <Button type="submit" className="mt-6 h-11 w-full" disabled={isLoading}>
-          {isLoading ? (
-            <>
-              <Spinner className="size-4" />
-              Sending otp..
-            </>
-          ) : (
-            "Send OTP"
-          )}
-        </Button>
+        <SubmitButton
+          className="mt-6 h-11 w-full"
+          loading={isLoading}
+          loadingText="Sending otp.."
+        >
+          Send OTP
+        </SubmitButton>
       </form>
     </div>
   );

@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import authReducer from "@/store/auth/authSlice";
+import { expectNoA11yViolations } from "@/test/axe";
 import Verify2FaOtpPage from "./Verify2FaOtpPage";
 
 const verify2FaLoginOtp = vi.hoisted(() => vi.fn());
@@ -182,6 +183,58 @@ describe("Verify2FaOtpPage", () => {
 
       resolveRequest(completeResponse);
       expect(await screen.findByText("Dashboard page")).toBeInTheDocument();
+    });
+  });
+
+  describe("accessibility", () => {
+    it("sets a descriptive document title", () => {
+      renderPage();
+
+      expect(document.title).toBe("Two-factor verification | Platform Admin");
+    });
+
+    it("marks the code field as required", () => {
+      renderPage();
+
+      expect(otpInput()).toBeRequired();
+    });
+
+    it("invalidates the code field and ties it to an alert when verification fails", async () => {
+      verify2FaLoginOtp.mockRejectedValue(new Error("network down"));
+      renderPage();
+      expect(otpInput()).toHaveAttribute("aria-invalid", "false");
+
+      fillAndSubmit();
+
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent("Could not Sign in");
+      expect(otpInput()).toHaveAttribute("aria-invalid", "true");
+      expect(otpInput()).toHaveAccessibleDescription("Could not Sign in");
+    });
+
+    it("hides the decorative back arrow from assistive tech", () => {
+      renderPage();
+
+      expect(
+        screen
+          .getByRole("link", { name: "Back to sign in" })
+          .querySelector("svg"),
+      ).toHaveAttribute("aria-hidden", "true");
+    });
+
+    it("has no axe violations on first render, after a failure and while verifying", async () => {
+      renderPage();
+      await expectNoA11yViolations();
+
+      verify2FaLoginOtp.mockRejectedValueOnce(new Error("network down"));
+      fillAndSubmit();
+      await screen.findByRole("alert");
+      await expectNoA11yViolations();
+
+      verify2FaLoginOtp.mockReturnValue(new Promise(() => {}));
+      fireEvent.click(submitButton());
+      await screen.findByRole("button", { name: /Verifying/ });
+      await expectNoA11yViolations();
     });
   });
 });

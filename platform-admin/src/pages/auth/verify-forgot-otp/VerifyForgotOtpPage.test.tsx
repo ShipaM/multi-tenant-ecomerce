@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import authReducer from "@/store/auth/authSlice";
+import { expectNoA11yViolations } from "@/test/axe";
 import VerifyForgotOtpPage from "./VerifyForgotOtpPage";
 
 const forgotPassword = vi.hoisted(() => vi.fn());
@@ -281,6 +282,71 @@ describe("VerifyForgotOtpPage", () => {
         "Failed to send forgot password email",
       );
       expect(resendButton()).toBeEnabled();
+    });
+  });
+
+  describe("accessibility", () => {
+    it("sets a descriptive document title", () => {
+      renderPage();
+
+      expect(document.title).toBe("Verify code | Platform Admin");
+    });
+
+    it("marks the code field as required", () => {
+      renderPage();
+
+      expect(otpInput()).toBeRequired();
+    });
+
+    it("invalidates the code field and ties it to an alert when verification fails", async () => {
+      forgotPasswordOtpVerify.mockRejectedValue(new Error("network down"));
+      renderPage();
+      expect(otpInput()).toHaveAttribute("aria-invalid", "false");
+
+      fillAndSubmit();
+
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent("Failed to verify forgot password otp");
+      expect(otpInput()).toHaveAttribute("aria-invalid", "true");
+      expect(otpInput()).toHaveAccessibleDescription(
+        "Failed to verify forgot password otp",
+      );
+    });
+
+    it("hides the decorative back arrow from assistive tech", () => {
+      renderPage();
+
+      expect(
+        screen
+          .getByRole("link", { name: "Back to sign in" })
+          .querySelector("svg"),
+      ).toHaveAttribute("aria-hidden", "true");
+    });
+
+    it("has no axe violations while the code is valid", async () => {
+      renderPage();
+
+      await expectNoA11yViolations();
+    });
+
+    it("has no axe violations once the code has expired and while resending", async () => {
+      forgotPassword.mockReturnValue(new Promise(() => {}));
+      renderPage(expiredState());
+      await expectNoA11yViolations();
+
+      fireEvent.click(resendButton());
+      await screen.findByRole("button", { name: /Sending/ });
+      await expectNoA11yViolations();
+    });
+
+    it("has no axe violations after a failed verification", async () => {
+      forgotPasswordOtpVerify.mockRejectedValue(new Error("network down"));
+      renderPage();
+
+      fillAndSubmit();
+      await screen.findByRole("alert");
+
+      await expectNoA11yViolations();
     });
   });
 });

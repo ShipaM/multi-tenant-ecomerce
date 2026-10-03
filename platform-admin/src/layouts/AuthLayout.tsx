@@ -3,12 +3,14 @@ import { Outlet, useNavigate } from "react-router";
 import PlatformLogo from "@/assets/platform-logo.png";
 
 import { RouteFallback } from "@/components";
+import { useFocusOnNavigation } from "@/hooks/use-focus-on-navigation";
 import { useAppSelector } from "@/hooks/use-store";
 
 const AuthLayout = () => {
   const accessToken = useAppSelector((state) => state.auth.accessToken);
 
   const navigate = useNavigate();
+  const mainRef = useFocusOnNavigation<HTMLElement>();
 
   useEffect(() => {
     if (accessToken) {
@@ -22,7 +24,7 @@ const AuthLayout = () => {
         <div className="flex items-center gap-3">
           <img
             src={PlatformLogo}
-            alt="Platform Admin Logo"
+            alt=""
             className="size-12 rounded-xl shadow-lg shadow-black/20"
           />
           <span className="text-base font-bold text-white">Platform Admin</span>
@@ -40,7 +42,11 @@ const AuthLayout = () => {
 
         <p className="text-xs text-[#8fb093]">&copy; 2026</p>
       </div>
-      <main className="flex flex-1 items-center justify-center bg-background p-8">
+      <main
+        ref={mainRef}
+        tabIndex={-1}
+        className="flex flex-1 items-center justify-center bg-background p-8 outline-none"
+      >
         <Suspense fallback={<RouteFallback />}>
           <Outlet />
         </Suspense>
