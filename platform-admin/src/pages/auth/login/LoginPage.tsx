@@ -58,6 +58,7 @@ const LoginPage = () => {
               <FieldLabel htmlFor="password">Password</FieldLabel>
               <PrefetchLink
                 to="/auth/forgot-password"
+                state={{ redirectTo }}
                 prefetchModule="forgotPassword"
                 className="text-xs font-medium text-primary hover:underline"
               >

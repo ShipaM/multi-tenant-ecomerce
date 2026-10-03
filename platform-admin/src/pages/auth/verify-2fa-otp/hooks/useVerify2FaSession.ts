@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { isSafeRedirectPath } from "@/lib/redirect";
+import { DEFAULT_REDIRECT, isSafeRedirectPath } from "@/lib/redirect";
 import type { AuthNavigationState } from "@/types";
 
 type UseVerify2FaSessionResult = {
@@ -20,7 +20,7 @@ export const useVerify2FaSession = (): UseVerify2FaSessionResult => {
   const redirectTo =
     navState?.redirectTo && isSafeRedirectPath(navState.redirectTo)
       ? navState.redirectTo
-      : "/dashboard";
+      : DEFAULT_REDIRECT;
 
   useEffect(() => {
     if (!twoFactorToken) navigate("/auth/login");

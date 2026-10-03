@@ -5,17 +5,13 @@ import { useResetPasswordValidation } from "./useResetPasswordValidation";
 
 describe("useResetPasswordValidation", () => {
   it("starts without errors", () => {
-    const { result } = renderHook(() =>
-      useResetPasswordValidation("", ""),
-    );
+    const { result } = renderHook(() => useResetPasswordValidation("", ""));
 
     expect(result.current.fieldErrors).toEqual({});
   });
 
   it("flags empty fields", () => {
-    const { result } = renderHook(() =>
-      useResetPasswordValidation("", ""),
-    );
+    const { result } = renderHook(() => useResetPasswordValidation("", ""));
 
     let valid = true;
     act(() => {
@@ -69,9 +65,7 @@ describe("useResetPasswordValidation", () => {
   });
 
   it("clears a single field error", () => {
-    const { result } = renderHook(() =>
-      useResetPasswordValidation("", ""),
-    );
+    const { result } = renderHook(() => useResetPasswordValidation("", ""));
     act(() => {
       result.current.validate();
     });

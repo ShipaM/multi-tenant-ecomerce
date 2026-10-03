@@ -29,6 +29,10 @@ describe("buildLoginUrl", () => {
     );
   });
 
+  it("drops the default target", () => {
+    expect(buildLoginUrl("/dashboard")).toBe("/auth/login");
+  });
+
   it("drops an unsafe target", () => {
     expect(buildLoginUrl("//evil.example.com")).toBe("/auth/login");
   });

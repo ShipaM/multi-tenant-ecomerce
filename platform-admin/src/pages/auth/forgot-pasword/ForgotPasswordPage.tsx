@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { useRedirectState } from "@/hooks/use-redirect-state";
+import { buildLoginUrl } from "@/lib/redirect";
 import { ArrowLeft } from "lucide-react";
 import {
   useForgotPasswordEmail,
@@ -11,6 +13,7 @@ import {
 } from "./hooks";
 
 const ForgotPasswordPage = () => {
+  const redirectTo = useRedirectState();
   const { email, onEmailChange, resetEmail } = useForgotPasswordEmail();
 
   const { emailError, validate, clearEmailError } =
@@ -20,12 +23,13 @@ const ForgotPasswordPage = () => {
     email,
     validate,
     resetEmail,
+    redirectTo,
   );
 
   return (
     <div className="w-full max-w-sm">
       <PrefetchLink
-        to="/auth/login"
+        to={buildLoginUrl(redirectTo)}
         prefetchModule="login"
         aria-label="Back to sign in"
         className="mb-4 inline-flex text-foreground items-center gap-2"

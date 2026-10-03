@@ -16,8 +16,11 @@ import {
   fetchForgotPasswordOtpVerify,
 } from "@/store/auth/thunks";
 import { toast } from "sonner";
+import { useRedirectState } from "@/hooks/use-redirect-state";
+import { buildLoginUrl } from "@/lib/redirect";
 
 const VerifyForgotOtpPage = () => {
+  const redirectTo = useRedirectState();
   const location = useLocation();
   const email = (location.state as AuthNavigationState | null)?.email as string;
   const otpCreatedAtLocation = (
@@ -61,6 +64,7 @@ const VerifyForgotOtpPage = () => {
           state: {
             email: email,
             resetToken: response.data.resetToken,
+            redirectTo,
           },
           replace: true,
         });
@@ -95,7 +99,7 @@ const VerifyForgotOtpPage = () => {
     <div className="w-full max-w-sm">
       <PrefetchLink
         prefetchModule="login"
-        to={"/auth/login"}
+        to={buildLoginUrl(redirectTo)}
         aria-label="Back to sign in"
         className="mb-4 inline-flex text-foreground items-center gap-2"
       >

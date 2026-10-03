@@ -15,6 +15,7 @@ export const useForgotPasswordSubmit = (
   email: string,
   validate: () => boolean,
   onSuccess?: () => void,
+  redirectTo?: string,
 ): UseForgotPasswordSubmitResult => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ export const useForgotPasswordSubmit = (
 
       if (response.success) {
         navigate("/auth/forgot-password/otp", {
-          state: { email, createdAt: response.data.createdAt },
+          state: { email, createdAt: response.data.createdAt, redirectTo },
         });
         onSuccess?.();
         toast.success(response.message);

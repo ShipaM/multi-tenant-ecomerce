@@ -1,7 +1,5 @@
 import { useSearchParams } from "react-router";
-import { isSafeRedirectPath } from "@/lib/redirect";
-
-const DEFAULT_REDIRECT = "/dashboard";
+import { DEFAULT_REDIRECT, isSafeRedirectPath } from "@/lib/redirect";
 
 /** Resolves the post-login path from `redirect_uri`, falling back to the dashboard if it is missing or unsafe. */
 export const useRedirectTarget = (): string => {

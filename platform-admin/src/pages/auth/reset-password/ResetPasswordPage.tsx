@@ -8,6 +8,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
+import { buildLoginUrl } from "@/lib/redirect";
 import { CheckCircle2 } from "lucide-react";
 import {
   useResetPasswordForm,
@@ -17,7 +18,7 @@ import {
 } from "./hooks";
 
 const ResetPassword = () => {
-  const { email, resetToken } = useResetPasswordSession();
+  const { email, resetToken, redirectTo } = useResetPasswordSession();
 
   const {
     password,
@@ -28,8 +29,10 @@ const ResetPassword = () => {
     resetForm,
   } = useResetPasswordForm();
 
-  const { fieldErrors, validate, clearFieldError } =
-    useResetPasswordValidation(password, confirmPassword);
+  const { fieldErrors, validate, clearFieldError } = useResetPasswordValidation(
+    password,
+    confirmPassword,
+  );
 
   const confirmError =
     fieldErrors.confirmPassword ??
@@ -54,7 +57,7 @@ const ResetPassword = () => {
           password.
         </p>
         <Button asChild className="mt-10 h-11 w-full">
-          <PrefetchLink prefetchModule="login" to={"/auth/login"}>
+          <PrefetchLink prefetchModule="login" to={buildLoginUrl(redirectTo)}>
             Back to sign in
           </PrefetchLink>
         </Button>
@@ -137,7 +140,7 @@ const ResetPassword = () => {
       <p className="mt-2 text-sm text-muted-foreground">
         Already had an account:{" "}
         <PrefetchLink
-          to="/auth/login"
+          to={buildLoginUrl(redirectTo)}
           prefetchModule="login"
           aria-label="Back to sign in"
           className="font-medium text-primary hover:underline"

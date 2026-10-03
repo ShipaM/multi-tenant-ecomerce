@@ -42,6 +42,16 @@ describe("useResetPasswordSession", () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
+  it("returns the redirect target handed over by the login step", () => {
+    const { result } = renderWithState({
+      email: "jane@example.com",
+      resetToken: "tok",
+      redirectTo: "/orders",
+    });
+
+    expect(result.current.redirectTo).toBe("/orders");
+  });
+
   it("sends the user back to forgot password when there is no state", () => {
     const { result } = renderWithState(null);
 

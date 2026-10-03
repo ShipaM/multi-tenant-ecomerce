@@ -32,7 +32,11 @@ const submitEvent = () =>
     ReturnType<typeof useForgotPasswordSubmit>["handleSubmit"]
   >[0];
 
-const setup = (validate = () => true, onSuccess?: () => void) => {
+const setup = (
+  validate = () => true,
+  onSuccess?: () => void,
+  redirectTo?: string,
+) => {
   const store = configureStore({ reducer: { auth: authReducer } });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <Provider store={store}>
@@ -40,9 +44,10 @@ const setup = (validate = () => true, onSuccess?: () => void) => {
     </Provider>
   );
 
-  return renderHook(() => useForgotPasswordSubmit(email, validate, onSuccess), {
-    wrapper,
-  });
+  return renderHook(
+    () => useForgotPasswordSubmit(email, validate, onSuccess, redirectTo),
+    { wrapper },
+  );
 };
 
 describe("useForgotPasswordSubmit", () => {
@@ -79,6 +84,17 @@ describe("useForgotPasswordSubmit", () => {
     await act(() => result.current.handleSubmit(event));
 
     expect(event.preventDefault).toHaveBeenCalled();
+  });
+
+  it("hands the redirect target on to the OTP step", async () => {
+    forgotPassword.mockResolvedValue(successResponse);
+    const { result } = setup(() => true, undefined, "/orders");
+
+    await act(() => result.current.handleSubmit(submitEvent()));
+
+    expect(navigate).toHaveBeenCalledWith("/auth/forgot-password/otp", {
+      state: { email, createdAt, redirectTo: "/orders" },
+    });
   });
 
   it("requests the code, opens the OTP step and shows a success toast", async () => {
